@@ -1,0 +1,8 @@
+[package]
+name = "libmacaroon-rs"
+version = "0.1.0"
+authors = ["Jack Lund <jackl@geekheads.net>"]
+
+[dependencies]
+base64 = "0.3.0"
+sodiumoxide = "0.0.13"
