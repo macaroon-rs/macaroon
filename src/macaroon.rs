@@ -3,17 +3,17 @@ use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
 use std::str;
 use super::serialization::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Caveat {
-    pub id: &'static str,
-    pub verifier_id: Option<&'static str>,
-    pub location: Option<&'static str>,
+    pub id: String,
+    pub verifier_id: Option<String>,
+    pub location: Option<String>,
 }
 
 impl Caveat {
-    pub fn new(id: &'static str,
-               verifier_id: Option<&'static str>,
-               location: Option<&'static str>)
+    pub fn new(id: String,
+               verifier_id: Option<String>,
+               location: Option<String>)
                -> Caveat {
         Caveat {
             id: id,
@@ -61,7 +61,7 @@ impl Macaroon {
     #[allow(unused_variables)]
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
         self.signature = try!(hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
-        self.caveats.push(Caveat::new(predicate, None, None));
+        self.caveats.push(Caveat::new(String::from(predicate), None, None));
         Ok(())
     }
 
