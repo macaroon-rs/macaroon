@@ -57,6 +57,7 @@ fn varint_size(size: usize) -> Vec<u8> {
         buffer.push(((my_size & (VARINT_PACK_SIZE - 1)) | VARINT_PACK_SIZE) as u8);
         my_size >>= 7;
     }
+    buffer.push(my_size as u8);
 
     buffer
 }
@@ -373,7 +374,7 @@ pub fn deserialize_v2j(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use serialize::base64::FromBase64;
-    use super::super::macaroon::{Format, Macaroon};
+    use super::super::macaroon::{Caveat, Format, Macaroon};
 
     const SERIALIZED_V1: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
     const SERIALIZED_V1_WITH_CAVEAT: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
@@ -429,5 +430,28 @@ mod tests {
         assert_eq!(None, macaroon.caveats[0].verifier_id);
         assert_eq!(None, macaroon.caveats[0].location);
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
+    }
+
+    #[test]
+    fn test_serialize_v2() {
+        let mut caveats: Vec<Caveat> = Vec::new();
+        caveats.push(Caveat {
+            id: String::from("account = 3735928559"),
+            verifier_id: None,
+            location: None,
+        });
+        caveats.push(Caveat {
+            id: String::from("user = alice"),
+            verifier_id: None,
+            location: None,
+        });
+        let macaroon: Macaroon = Macaroon {
+            location: Some(String::from("http://example.org/")),
+            identifier: String::from("keyid"),
+            caveats: caveats,
+            signature: SIGNATURE_V2.to_vec(),
+        };
+        let serialized = super::serialize_v2(&macaroon).unwrap();
+        assert_eq!(SERIALIZED_V2.from_base64().unwrap(), serialized);
     }
 }
