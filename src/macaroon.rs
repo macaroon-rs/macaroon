@@ -31,7 +31,7 @@ pub enum Format {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Macaroon {
-    pub location: String,
+    pub location: Option<String>,
     pub identifier: String,
     pub signature: Vec<u8>,
     pub caveats: Vec<Caveat>,
@@ -46,7 +46,7 @@ impl Macaroon {
                   -> Result<Macaroon, MacaroonError> {
         let temp_key = try!(hmac_vec(&KEY_GENERATOR.to_vec(), &key));
         Ok(Macaroon {
-            location: String::from(location),
+            location: Some(String::from(location)),
             identifier: String::from(identifier),
             signature: hmac(&temp_key, identifier.as_bytes()).to_vec(),
             caveats: Vec::new(),
@@ -66,7 +66,7 @@ impl Macaroon {
     }
 
     #[allow(unused_variables)]
-    pub fn serialize(&self, format: Format) -> Result<String, MacaroonError> {
+    pub fn serialize(&self, format: Format) -> Result<Vec<u8>, MacaroonError> {
         match format {
             Format::V1 => serialize_v1(self),
             Format::V2 => serialize_v2(self),
@@ -75,8 +75,8 @@ impl Macaroon {
     }
 
     #[allow(unused_variables)]
-    pub fn deserialize(data: &str) -> Result<Macaroon, MacaroonError> {
-        match data.as_bytes()[0] as char {
+    pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
+        match data[0] as char {
             '}' => deserialize_v2j(data),
             '\x02' => deserialize_v2(data),
             'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => deserialize_v1(data),
@@ -129,7 +129,8 @@ mod tests {
         let macaroon_res = Macaroon::create("location", *key, "identifier");
         assert!(macaroon_res.is_ok());
         let macaroon = macaroon_res.unwrap();
-        assert_eq!("location", macaroon.location);
+        assert!(macaroon.location.is_some());
+        assert_eq!("location", macaroon.location.unwrap());
         assert_eq!("identifier", macaroon.identifier);
         assert_eq!(signature.to_vec(), macaroon.signature);
         assert_eq!(0, macaroon.caveats.len());
