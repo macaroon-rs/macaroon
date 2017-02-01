@@ -11,10 +11,7 @@ pub struct Caveat {
 }
 
 impl Caveat {
-    pub fn new(id: String,
-               verifier_id: Option<String>,
-               location: Option<String>)
-               -> Caveat {
+    pub fn new(id: String, verifier_id: Option<String>, location: Option<String>) -> Caveat {
         Caveat {
             id: id,
             verifier_id: verifier_id,
@@ -77,7 +74,7 @@ impl Macaroon {
     #[allow(unused_variables)]
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match data[0] as char {
-            '}' => deserialize_v2j(data),
+            '{' => deserialize_v2j(data),
             '\x02' => deserialize_v2(data),
             'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => deserialize_v1(data),
             _ => Err(MacaroonError::UnknownSerialization),

@@ -1,5 +1,6 @@
+use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
-use std::error::Error;
+use std::convert::TryFrom;
 use std::str;
 use super::macaroon::{Caveat, Macaroon};
 use super::error::MacaroonError;
@@ -20,6 +21,154 @@ const LOCATION_V2: u8 = 1;
 const IDENTIFIER_V2: u8 = 2;
 const VID_V2: u8 = 4;
 const SIGNATURE_V2: u8 = 6;
+
+macro_rules! try_utf8 {
+    ($x: expr) => (
+        {
+            String::from_utf8($x)?
+        }
+    )
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct CaveatV2J {
+    i: Option<String>,
+    i64: Option<String>,
+    l: Option<String>,
+    l64: Option<String>,
+    v: Option<String>,
+    v64: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct V2JSerialization {
+    v: u8,
+    i: Option<String>,
+    i64: Option<String>,
+    l: Option<String>,
+    l64: Option<String>,
+    c: Vec<CaveatV2J>,
+    s: Option<Vec<u8>>,
+    s64: Option<String>,
+}
+
+impl<'r> From<&'r Macaroon> for V2JSerialization {
+    fn from(macaroon: &'r Macaroon) -> V2JSerialization {
+        let mut serialized: V2JSerialization = V2JSerialization {
+            v: 2,
+            i: Some(macaroon.identifier.clone()),
+            i64: None,
+            l: macaroon.location.clone(),
+            l64: None,
+            c: Vec::new(),
+            s: None,
+            s64: Some(macaroon.signature.to_base64(STANDARD)),
+        };
+        for caveat in macaroon.caveats.clone() {
+            let serialized_caveat: CaveatV2J = CaveatV2J {
+                i: Some(caveat.id),
+                i64: None,
+                l: caveat.location,
+                l64: None,
+                v: caveat.verifier_id,
+                v64: None,
+            };
+            serialized.c.push(serialized_caveat);
+        }
+
+        serialized
+    }
+}
+
+impl TryFrom<V2JSerialization> for Macaroon {
+    type Err = MacaroonError;
+    fn try_from(ser: V2JSerialization) -> Result<Self, Self::Err> {
+        if ser.i.is_some() && ser.i64.is_some() {
+            return Err(MacaroonError::DeserializationError(String::from("Found i and i64 fields")));
+        }
+        if ser.l.is_some() && ser.l64.is_some() {
+            return Err(MacaroonError::DeserializationError(String::from("Found l and l64 fields")));
+        }
+        if ser.s.is_some() && ser.s64.is_some() {
+            return Err(MacaroonError::DeserializationError(String::from("Found s and s64 fields")));
+        }
+
+        let mut macaroon: Macaroon = Default::default();
+        macaroon.identifier = match ser.i {
+            Some(id) => id,
+            None => {
+                match ser.i64 {
+                    Some(id) => try_utf8!(id.from_base64()?),
+                    None => {
+                        return Err(MacaroonError::DeserializationError(String::from("No identifier \
+                                                                                     found")))
+                    }
+                }
+            }
+        };
+
+        macaroon.location = match ser.l {
+            Some(loc) => Some(loc),
+            None => {
+                match ser.l64 {
+                    Some(loc) => Some(try_utf8!(loc.from_base64()?)),
+                    None => None,
+                }
+            }
+        };
+
+        macaroon.signature = match ser.s {
+            Some(sig) => sig,
+            None => {
+                match ser.s64 {
+                    Some(sig) => sig.from_base64()?,
+                    None => {
+                        return Err(MacaroonError::DeserializationError(String::from("No signature \
+                                                                                     found")))
+                    }
+                }
+            }
+        };
+
+        let mut caveat: Caveat = Default::default();
+        for c in ser.c {
+            caveat.id = match c.i {
+                Some(id) => id,
+                None => {
+                    match c.i64 {
+                        Some(id64) => try_utf8!(id64.from_base64()?),
+                        None => {
+                            return Err(MacaroonError::DeserializationError(String::from("No caveat \
+                                                                                         ID found")))
+                        }
+                    }
+                }
+            };
+            caveat.location = match c.l {
+                Some(loc) => Some(loc),
+                None => {
+                    match c.l64 {
+                        Some(loc64) => Some(try_utf8!(loc64.from_base64()?)),
+                        None => None,
+                    }
+                }
+            };
+            caveat.verifier_id = match c.v {
+                Some(vid) => Some(vid),
+                None => {
+                    match c.v64 {
+                        Some(vid64) => Some(try_utf8!(vid64.from_base64()?)),
+                        None => None,
+                    }
+                }
+            };
+            macaroon.caveats.push(caveat);
+            caveat = Default::default();
+        }
+
+        Ok(macaroon)
+    }
+}
 
 fn serialize_as_packet<'r>(tag: &'r str, value: &'r [u8]) -> Vec<u8> {
     let mut packet: Vec<u8> = Vec::new();
@@ -128,27 +277,13 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     Ok(buffer)
 }
 
-#[allow(unused_variables)]
 pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
-    unimplemented!()
-}
-
-macro_rules! try_utf8 {
-    ($x: expr) => (
-        {
-            match String::from_utf8($x) {
-                Ok(value) => value,
-                Err(error) => return Err(MacaroonError::DeserializationError(String::from(error.description()))),
-            }
-        }
-    )
+    let serialized: String = serde_json::to_string(&V2JSerialization::from(macaroon))?;
+    Ok(serialized.into_bytes())
 }
 
 fn base64_decode(base64: &str) -> Result<Vec<u8>, MacaroonError> {
-    match base64.from_base64() {
-        Ok(value) => Ok(value),
-        Err(error) => Err(MacaroonError::DeserializationError(String::from(error.description()))),
-    }
+    Ok(base64.from_base64()?)
 }
 
 struct Packet {
@@ -162,17 +297,8 @@ fn deserialize_as_packets<'r>(data: &'r [u8],
     if data.len() == 0 {
         return Ok(packets);
     }
-    let size: usize = match str::from_utf8(&data[..4]) {
-        Ok(hex) => {
-            match usize::from_str_radix(hex, 16) {
-                Ok(value) => value,
-                Err(error) => return Err(MacaroonError::DeserializationError(String::from(error.description()))),
-            }
-        }
-        Err(error) => {
-            return Err(MacaroonError::DeserializationError(String::from(error.description())))
-        }
-    };
+    let hex: &str = str::from_utf8(&data[..4])?;
+    let size: usize = usize::from_str_radix(hex, 16)?;
     let packet_data = &data[4..size];
     let index = try!(get_split_index(packet_data));
     let (key_slice, value_slice) = packet_data.split_at(index);
@@ -287,7 +413,6 @@ impl<'r> V2Deserializer<'r> {
     }
 }
 
-#[allow(unused_variables)]
 pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     let mut macaroon: Macaroon = Default::default();
     let mut deserializer: V2Deserializer = V2Deserializer::new(data);
@@ -368,7 +493,9 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 
 #[allow(unused_variables)]
 pub fn deserialize_v2j(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
-    unimplemented!()
+    let v2j: V2JSerialization = serde_json::from_slice(data.as_slice())?;
+    println!("{:?}", v2j);
+    Macaroon::try_from(v2j)
 }
 
 #[cfg(test)]
@@ -379,6 +506,10 @@ mod tests {
     const SERIALIZED_V1: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
     const SERIALIZED_V1_WITH_CAVEAT: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
     const SERIALIZED_V2: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
+    const SERIALIZED_V2J: &'static str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
+                                          \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
+                                          alice\"}],\"s64\":\
+                                          \"S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw\"}";
     const SIGNATURE_V1: [u8; 32] = [124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223,
                                     233, 178, 78, 120, 94, 40, 226, 169, 147, 1, 249, 215, 17,
                                     198, 9, 227, 142, 247];
@@ -453,5 +584,29 @@ mod tests {
         };
         let serialized = super::serialize_v2(&macaroon).unwrap();
         assert_eq!(SERIALIZED_V2.from_base64().unwrap(), serialized);
+    }
+
+    #[test]
+    fn test_deserialize_v2j() {
+        let serialized_v2j: Vec<u8> = SERIALIZED_V2J.as_bytes().to_vec();
+        let macaroon = super::deserialize_v2j(&serialized_v2j).unwrap();
+        assert_eq!("http://example.org/", &macaroon.location.unwrap());
+        assert_eq!("keyid", macaroon.identifier);
+        assert_eq!(2, macaroon.caveats.len());
+        assert_eq!("account = 3735928559", macaroon.caveats[0].id);
+        assert_eq!(None, macaroon.caveats[0].verifier_id);
+        assert_eq!(None, macaroon.caveats[0].location);
+        assert_eq!("user = alice", macaroon.caveats[1].id);
+        assert_eq!(None, macaroon.caveats[0].verifier_id);
+        assert_eq!(None, macaroon.caveats[0].location);
+        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_v2j() {
+        let macaroon = Macaroon::create("http://example.org/", SIGNATURE_V1, "keyid").unwrap();
+        let serialized = macaroon.serialize(Format::V2J).unwrap();
+        let other = Macaroon::deserialize(&serialized).unwrap();
+        assert_eq!(macaroon, other);
     }
 }
