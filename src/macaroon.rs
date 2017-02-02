@@ -1,7 +1,7 @@
 use error::MacaroonError;
 use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
 use std::str;
-use super::serialization::*;
+use super::serialization;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Caveat {
@@ -11,19 +11,16 @@ pub struct Caveat {
 }
 
 impl Caveat {
-    pub fn new(id: String, verifier_id: Option<String>, location: Option<String>) -> Caveat {
+    pub fn new(id: String,
+               verifier_id: Option<String>,
+               location: Option<String>)
+               -> Caveat {
         Caveat {
             id: id,
             verifier_id: verifier_id,
             location: location,
         }
     }
-}
-
-pub enum Format {
-    V1,
-    V2,
-    V2J,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -63,20 +60,20 @@ impl Macaroon {
     }
 
     #[allow(unused_variables)]
-    pub fn serialize(&self, format: Format) -> Result<Vec<u8>, MacaroonError> {
+    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
         match format {
-            Format::V1 => serialize_v1(self),
-            Format::V2 => serialize_v2(self),
-            Format::V2J => serialize_v2j(self),
+            serialization::Format::V1 => serialization::v1::serialize_v1(self),
+            serialization::Format::V2 => serialization::v2::serialize_v2(self),
+            serialization::Format::V2J => serialization::v2j::serialize_v2j(self),
         }
     }
 
     #[allow(unused_variables)]
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match data[0] as char {
-            '{' => deserialize_v2j(data),
-            '\x02' => deserialize_v2(data),
-            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => deserialize_v1(data),
+            '{' => serialization::v2j::deserialize_v2j(data),
+            '\x02' => serialization::v2::deserialize_v2(data),
+            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => serialization::v1::deserialize_v1(data),
             _ => Err(MacaroonError::UnknownSerialization),
         }
     }
