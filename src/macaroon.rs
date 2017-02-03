@@ -14,12 +14,22 @@ impl Caveat {
     pub fn new(id: String,
                verifier_id: Option<String>,
                location: Option<String>)
-               -> Caveat {
-        Caveat {
+               -> Result<Caveat, MacaroonError> {
+        let caveat: Caveat = Caveat {
             id: id,
             verifier_id: verifier_id,
             location: location,
+        };
+
+        caveat.validate()
+    }
+
+    pub fn validate(self) -> Result<Self, MacaroonError> {
+        if self.id.is_empty() {
+            return Err(MacaroonError::BadMacaroon("Caveat with no identifier"));
         }
+
+        Ok(self)
     }
 }
 
@@ -39,12 +49,24 @@ impl Macaroon {
                   identifier: &'static str)
                   -> Result<Macaroon, MacaroonError> {
         let temp_key = try!(hmac_vec(&KEY_GENERATOR.to_vec(), &key));
-        Ok(Macaroon {
+        let macaroon: Macaroon = Macaroon {
             location: Some(String::from(location)),
             identifier: String::from(identifier),
             signature: hmac(&temp_key, identifier.as_bytes()).to_vec(),
             caveats: Vec::new(),
-        })
+        };
+        macaroon.validate()
+    }
+
+    pub fn validate(self) -> Result<Self, MacaroonError> {
+        if self.identifier.is_empty() {
+            return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
+        }
+        if self.signature.is_empty() {
+            return Err(MacaroonError::BadMacaroon("No macaroon signature"));
+        }
+
+        Ok(self)
     }
 
     #[allow(unused_variables)]
@@ -55,7 +77,7 @@ impl Macaroon {
     #[allow(unused_variables)]
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
         self.signature = try!(hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
-        self.caveats.push(Caveat::new(String::from(predicate), None, None));
+        self.caveats.push(Caveat::new(String::from(predicate), None, None)?);
         Ok(())
     }
 
@@ -70,12 +92,13 @@ impl Macaroon {
 
     #[allow(unused_variables)]
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
-        match data[0] as char {
-            '{' => serialization::v2j::deserialize_v2j(data),
-            '\x02' => serialization::v2::deserialize_v2(data),
-            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => serialization::v1::deserialize_v1(data),
-            _ => Err(MacaroonError::UnknownSerialization),
-        }
+        let macaroon: Macaroon = match data[0] as char {
+            '{' => serialization::v2j::deserialize_v2j(data)?,
+            '\x02' => serialization::v2::deserialize_v2(data)?,
+            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => serialization::v1::deserialize_v1(data)?,
+            _ => return Err(MacaroonError::UnknownSerialization),
+        };
+        macaroon.validate()
     }
 }
 
@@ -114,6 +137,7 @@ fn hmac<'r>(key: &'r [u8; 32], text: &'r [u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::Macaroon;
+    use error::MacaroonError;
 
     #[test]
     fn create_macaroon() {
@@ -128,6 +152,16 @@ mod tests {
         assert_eq!("identifier", macaroon.identifier);
         assert_eq!(signature.to_vec(), macaroon.signature);
         assert_eq!(0, macaroon.caveats.len());
+    }
+
+    #[test]
+    fn create_invalid_macaroon() {
+        let key: &[u8; 32] = b"this is a super duper secret key";
+        let macaroon_res: Result<Macaroon, MacaroonError> = Macaroon::create("location", *key, "");
+        assert!(macaroon_res.is_err());
+        let mut macaroon: Macaroon = Macaroon::create("location", *key, "identifier").unwrap();
+        let macaroon_res = macaroon.add_first_party_caveat("");
+        assert!(macaroon_res.is_err());
     }
 
     #[test]

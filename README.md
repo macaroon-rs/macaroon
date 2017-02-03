@@ -9,9 +9,9 @@ Macaroons are basically cookies which allow you to specify authorization and del
 - Macaroons and their caveats
 - Serialization - versions 1, 2 & 2J are supported
 - First-party caveats
+- Validation (mostly for validating deserialized macaroons)
 
 ## To Do
 
-- Validation (mostly for validating deserialized macaroons)
 - Verification
 - Third-party caveats
