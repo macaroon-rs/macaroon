@@ -50,7 +50,7 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         }
         serialize_field_v2(IDENTIFIER_V2, &caveat.id.as_bytes().to_vec(), &mut buffer);
         match caveat.verifier_id {
-            Some(ref id) => serialize_field_v2(VID_V2, &id.as_bytes().to_vec(), &mut buffer),
+            Some(ref id) => serialize_field_v2(VID_V2, &id, &mut buffer),
             None => (),
         }
         buffer.push(EOS_V2);
@@ -180,7 +180,7 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match tag {
             VID_V2 => {
                 let field: Vec<u8> = try!(deserializer.get_field());
-                caveat.verifier_id = Some(String::from_utf8(field)?);
+                caveat.verifier_id = Some(field);
                 macaroon.caveats.push(caveat);
                 try!(deserializer.get_eos());
                 tag = try!(deserializer.get_tag());

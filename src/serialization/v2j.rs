@@ -11,8 +11,8 @@ struct CaveatV2J {
     i64: Option<String>,
     l: Option<String>,
     l64: Option<String>,
-    v: Option<String>,
-    v64: Option<String>,
+    v: Option<Vec<u8>>,
+    v64: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -132,7 +132,7 @@ impl TryFrom<V2JSerialization> for Macaroon {
                 Some(vid) => Some(vid),
                 None => {
                     match c.v64 {
-                        Some(vid64) => Some(String::from_utf8(vid64.from_base64()?)?),
+                        Some(vid64) => Some(vid64.from_base64()?),
                         None => None,
                     }
                 }
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_v2j() {
-        let macaroon = Macaroon::create("http://example.org/", SIGNATURE_V2, "keyid").unwrap();
+        let macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V2, "keyid").unwrap();
         let serialized = macaroon.serialize(Format::V2J).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);

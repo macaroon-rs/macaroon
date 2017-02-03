@@ -11,3 +11,12 @@ extern crate serde_json;
 pub mod error;
 pub mod macaroon;
 pub mod serialization;
+
+use error::MacaroonError;
+
+pub fn initialize() -> Result<(), MacaroonError> {
+    match sodiumoxide::init() {
+        true => Ok(()),
+        false => Err(MacaroonError::InitializationError),
+    }
+}

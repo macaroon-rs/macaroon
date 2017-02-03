@@ -53,7 +53,7 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         serialized.extend(serialize_as_packet(CID_V1, caveat.id.as_bytes()));
         match caveat.verifier_id {
             Some(ref verifier_id) => {
-                serialized.extend(serialize_as_packet(VID_V1, verifier_id.as_bytes()))
+                serialized.extend(serialize_as_packet(VID_V1, &verifier_id))
             }
             None => (),
         }
@@ -131,9 +131,7 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                     caveat = Default::default();
                 }
             }
-            VID_V1 => {
-                caveat.verifier_id = Some(String::from(String::from_utf8(packet.value)?.trim()))
-            }
+            VID_V1 => caveat.verifier_id = Some(packet.value),
             CL_V1 => caveat.location = Some(String::from(String::from_utf8(packet.value)?.trim())),
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),
         };
@@ -175,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_v1() {
-        let macaroon = Macaroon::create("http://example.org/", SIGNATURE_V1, "keyid").unwrap();
+        let macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid").unwrap();
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);
