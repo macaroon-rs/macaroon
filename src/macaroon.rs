@@ -1,8 +1,7 @@
+use crypto;
 use error::MacaroonError;
-use sodiumoxide::crypto::secretbox;
-use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
 use std::str;
-use super::serialization;
+use serialization;
 use caveat::Caveat;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -13,23 +12,17 @@ pub struct Macaroon {
     pub caveats: Vec<Caveat>,
 }
 
-const KEY_GENERATOR: &'static [u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
-
 impl Macaroon {
-    fn generate_derived_key(key: &[u8; 32]) -> Result<[u8; 32], MacaroonError> {
-        hmac_vec(&KEY_GENERATOR.to_vec(), key)
-    }
-
     pub fn create(location: &'static str,
                   key: &[u8; 32],
                   identifier: &'static str)
                   -> Result<Macaroon, MacaroonError> {
-        let derived_key = Macaroon::generate_derived_key(&key)?;
+        let derived_key = crypto::generate_derived_key(&key)?;
 
         let macaroon: Macaroon = Macaroon {
             location: Some(String::from(location)),
             identifier: String::from(identifier),
-            signature: hmac(&derived_key, identifier.as_bytes()).to_vec(),
+            signature: crypto::hmac(&derived_key, identifier.as_bytes()).to_vec(),
             caveats: Vec::new(),
         };
         macaroon.validate()
@@ -52,15 +45,15 @@ impl Macaroon {
     }
 
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
-        self.signature = try!(hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
+        self.signature = try!(crypto::hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
         self.caveats.push(Caveat::new_first_party(predicate));
         Ok(())
     }
 
     pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8; 32], id: &str) -> Result<(), MacaroonError> {
-        let derived_key: [u8; 32] = Macaroon::generate_derived_key(key)?;
-        let vid: Vec<u8> = secretbox::seal(self.signature.as_slice(), &secretbox::gen_nonce(), &secretbox::Key(derived_key));
-        let signature = hmac2(&self.signature, &vid, id.as_bytes())?.to_vec();
+        let derived_key: [u8; 32] = crypto::generate_derived_key(key)?;
+        let vid: Vec<u8> = crypto::encrypt(self.signature.as_slice(), derived_key);
+        let signature = crypto::hmac2(&self.signature, &vid, id.as_bytes())?.to_vec();
         self.caveats.push(Caveat::new_third_party(id, vid, location));
         self.signature = signature;
         Ok(())
@@ -99,29 +92,6 @@ impl Verifier {
             callbacks: Vec::new(),
         }
     }
-}
-
-fn hmac_vec<'r>(key: &'r Vec<u8>, text: &'r [u8]) -> Result<[u8; 32], MacaroonError> {
-    if key.len() != 32 {
-        return Err(MacaroonError::KeyError("Wrong key length"));
-    }
-    let mut key_static: [u8; 32] = [0; 32];
-    for i in 0..key.len() {
-        key_static[i] = key[i];
-    }
-    Ok(hmac(&key_static, text))
-}
-
-fn hmac<'r>(key: &'r [u8; 32], text: &'r [u8]) -> [u8; 32] {
-    let Tag(result_bytes) = hmacsha256::authenticate(text, &Key(*key));
-    result_bytes
-}
-
-fn hmac2<'r>(key: &'r Vec<u8>, text1: &'r [u8], text2: &'r [u8]) -> Result<[u8; 32], MacaroonError> {
-    let tmp1: [u8;32] = hmac_vec(key, text1)?;
-    let tmp2: [u8;32] = hmac_vec(key, text2)?;
-    let tmp = [tmp1, tmp2].concat();
-    hmac_vec(key, &tmp)
 }
 
 #[cfg(test)]
