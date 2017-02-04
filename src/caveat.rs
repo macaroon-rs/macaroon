@@ -8,7 +8,7 @@ pub struct Caveat {
 }
 
 impl Caveat {
-    pub fn  new_first_party(predicate: &str) -> Caveat {
+    pub fn new_first_party(predicate: &str) -> Caveat {
         Caveat {
             id: String::from(predicate),
             verifier_id: None,
@@ -65,7 +65,9 @@ impl CaveatBuilder {
             return Ok(Caveat::new_first_party(&self.id.unwrap()));
         }
         if self.verifier_id.is_some() && self.location.is_some() {
-            return Ok(Caveat::new_third_party(&self.id.unwrap(), self.verifier_id.unwrap(), &self.location.unwrap()));
+            return Ok(Caveat::new_third_party(&self.id.unwrap(),
+                                              self.verifier_id.unwrap(),
+                                              &self.location.unwrap()));
         }
         if self.verifier_id.is_none() {
             return Err(MacaroonError::BadMacaroon("Location but no verifier ID found"));

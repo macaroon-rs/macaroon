@@ -53,9 +53,7 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     for caveat in &macaroon.caveats {
         serialized.extend(serialize_as_packet(CID_V1, caveat.id.as_bytes()));
         match caveat.verifier_id {
-            Some(ref verifier_id) => {
-                serialized.extend(serialize_as_packet(VID_V1, &verifier_id))
-            }
+            Some(ref verifier_id) => serialized.extend(serialize_as_packet(VID_V1, &verifier_id)),
             None => (),
         }
         match caveat.location {
@@ -111,10 +109,10 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match packet.key.as_str() {
             LOCATION_V1 => {
                 macaroon.location = Some(String::from(String::from_utf8(packet.value)?.trim()))
-            },
+            }
             IDENTIFIER_V1 => {
                 macaroon.identifier = String::from(String::from_utf8(packet.value)?.trim())
-            },
+            }
             SIGNATURE_V1 => {
                 if builder.has_id() {
                     macaroon.caveats.push(builder.build()?);
@@ -123,7 +121,7 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                 let mut signature: Vec<u8> = Vec::new();
                 signature.extend_from_slice(&packet.value[..32]);
                 macaroon.signature = signature;
-            },
+            }
             CID_V1 => {
                 if builder.has_id() {
                     macaroon.caveats.push(builder.build()?);
@@ -131,7 +129,7 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                 } else {
                     builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
                 }
-            },
+            }
             VID_V1 => builder.add_verifier_id(packet.value),
             CL_V1 => builder.add_location(String::from(String::from_utf8(packet.value)?.trim())),
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),

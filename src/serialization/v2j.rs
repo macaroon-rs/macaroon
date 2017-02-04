@@ -28,7 +28,7 @@ struct V2JSerialization {
     s64: Option<String>,
 }
 
-impl <'r> From<&'r Macaroon> for V2JSerialization {
+impl<'r> From<&'r Macaroon> for V2JSerialization {
     fn from(macaroon: &Macaroon) -> V2JSerialization {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,

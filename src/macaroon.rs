@@ -50,7 +50,11 @@ impl Macaroon {
         Ok(())
     }
 
-    pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8; 32], id: &str) -> Result<(), MacaroonError> {
+    pub fn add_third_party_caveat(&mut self,
+                                  location: &str,
+                                  key: &[u8; 32],
+                                  id: &str)
+                                  -> Result<(), MacaroonError> {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key)?;
         let vid: Vec<u8> = crypto::encrypt(self.signature.as_slice(), derived_key);
         let signature = crypto::hmac2(&self.signature, &vid, id.as_bytes())?.to_vec();
@@ -71,7 +75,9 @@ impl Macaroon {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2j::deserialize_v2j(data)?,
             '\x02' => serialization::v2::deserialize_v2(data)?,
-            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => serialization::v1::deserialize_v1(data)?,
+            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => {
+                serialization::v1::deserialize_v1(data)?
+            }
             _ => return Err(MacaroonError::UnknownSerialization),
         };
         macaroon.validate()
