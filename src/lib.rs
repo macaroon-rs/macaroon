@@ -8,6 +8,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
+pub mod caveat;
 pub mod error;
 pub mod macaroon;
 pub mod serialization;

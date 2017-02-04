@@ -2,7 +2,8 @@ use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
-use super::super::macaroon::{Caveat, Macaroon};
+use super::super::caveat::Caveat;
+use super::super::macaroon::Macaroon;
 use super::super::error::MacaroonError;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -27,8 +28,8 @@ struct V2JSerialization {
     s64: Option<String>,
 }
 
-impl<'r> From<&'r Macaroon> for V2JSerialization {
-    fn from(macaroon: &'r Macaroon) -> V2JSerialization {
+impl <'r> From<&'r Macaroon> for V2JSerialization {
+    fn from(macaroon: &Macaroon) -> V2JSerialization {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
             i: Some(macaroon.identifier.clone()),

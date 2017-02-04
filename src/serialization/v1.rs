@@ -1,6 +1,7 @@
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
-use super::super::macaroon::{Caveat, Macaroon};
+use super::super::caveat::CaveatBuilder;
+use super::super::macaroon::Macaroon;
 use super::super::error::MacaroonError;
 
 // Version 1 fields
@@ -105,34 +106,34 @@ fn get_split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
 pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     let data = try!(base64_decode(&String::from_utf8(base64.clone())?));
     let mut macaroon: Macaroon = Default::default();
-    let mut caveat: Caveat = Default::default();
+    let mut builder: CaveatBuilder = CaveatBuilder::new();
     for packet in try!(deserialize_as_packets(data.as_slice(), Vec::new())) {
         match packet.key.as_str() {
             LOCATION_V1 => {
                 macaroon.location = Some(String::from(String::from_utf8(packet.value)?.trim()))
-            }
+            },
             IDENTIFIER_V1 => {
                 macaroon.identifier = String::from(String::from_utf8(packet.value)?.trim())
-            }
+            },
             SIGNATURE_V1 => {
-                if !caveat.id.is_empty() {
-                    macaroon.caveats.push(caveat);
-                    caveat = Default::default();
+                if builder.has_id() {
+                    macaroon.caveats.push(builder.build()?);
+                    builder = CaveatBuilder::new();
                 }
                 let mut signature: Vec<u8> = Vec::new();
                 signature.extend_from_slice(&packet.value[..32]);
                 macaroon.signature = signature;
-            }
+            },
             CID_V1 => {
-                if caveat.id.is_empty() {
-                    caveat.id = String::from(String::from_utf8(packet.value)?.trim());
+                if builder.has_id() {
+                    macaroon.caveats.push(builder.build()?);
+                    builder = CaveatBuilder::new();
                 } else {
-                    macaroon.caveats.push(caveat);
-                    caveat = Default::default();
+                    builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
                 }
-            }
-            VID_V1 => caveat.verifier_id = Some(packet.value),
-            CL_V1 => caveat.location = Some(String::from(String::from_utf8(packet.value)?.trim())),
+            },
+            VID_V1 => builder.add_verifier_id(packet.value),
+            CL_V1 => builder.add_location(String::from(String::from_utf8(packet.value)?.trim())),
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),
         };
     }

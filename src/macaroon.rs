@@ -3,36 +3,7 @@ use sodiumoxide::crypto::secretbox;
 use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
 use std::str;
 use super::serialization;
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Caveat {
-    pub id: String,
-    pub verifier_id: Option<Vec<u8>>,
-    pub location: Option<String>,
-}
-
-impl Caveat {
-    pub fn new(id: String,
-               verifier_id: Option<Vec<u8>>,
-               location: Option<String>)
-               -> Result<Caveat, MacaroonError> {
-        let caveat: Caveat = Caveat {
-            id: id,
-            verifier_id: verifier_id,
-            location: location,
-        };
-
-        caveat.validate()
-    }
-
-    pub fn validate(self) -> Result<Self, MacaroonError> {
-        if self.id.is_empty() {
-            return Err(MacaroonError::BadMacaroon("Caveat with no identifier"));
-        }
-
-        Ok(self)
-    }
-}
+use caveat::Caveat;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Macaroon {
@@ -82,7 +53,7 @@ impl Macaroon {
 
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
         self.signature = try!(hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
-        self.caveats.push(Caveat::new(String::from(predicate), None, None)?);
+        self.caveats.push(Caveat::new_first_party(predicate));
         Ok(())
     }
 
@@ -90,7 +61,7 @@ impl Macaroon {
         let derived_key: [u8; 32] = Macaroon::generate_derived_key(key)?;
         let vid: Vec<u8> = secretbox::seal(self.signature.as_slice(), &secretbox::gen_nonce(), &secretbox::Key(derived_key));
         let signature = hmac2(&self.signature, &vid, id.as_bytes())?.to_vec();
-        self.caveats.push(Caveat::new(String::from(id), Some(vid), Some(String::from(location)))?);
+        self.caveats.push(Caveat::new_third_party(id, vid, location));
         self.signature = signature;
         Ok(())
     }
@@ -177,9 +148,6 @@ mod tests {
     fn create_invalid_macaroon() {
         let key: &[u8; 32] = b"this is a super duper secret key";
         let macaroon_res: Result<Macaroon, MacaroonError> = Macaroon::create("location", key, "");
-        assert!(macaroon_res.is_err());
-        let mut macaroon: Macaroon = Macaroon::create("location", key, "identifier").unwrap();
-        let macaroon_res = macaroon.add_first_party_caveat("");
         assert!(macaroon_res.is_err());
     }
 
