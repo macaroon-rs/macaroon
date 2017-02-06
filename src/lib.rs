@@ -1,5 +1,6 @@
 #![feature(proc_macro)]
 #![feature(try_from)]
+#![feature(box_syntax, box_patterns)]
 
 extern crate rustc_serialize as serialize;
 extern crate sodiumoxide;

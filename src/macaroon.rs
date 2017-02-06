@@ -2,14 +2,14 @@ use crypto;
 use error::MacaroonError;
 use std::str;
 use serialization;
-use caveat::Caveat;
+use caveat::{self, Caveat};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Macaroon {
     pub location: Option<String>,
     pub identifier: String,
     pub signature: Vec<u8>,
-    pub caveats: Vec<Caveat>,
+    pub caveats: Vec<Box<Caveat>>,
 }
 
 impl Macaroon {
@@ -46,7 +46,7 @@ impl Macaroon {
 
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
         self.signature = try!(crypto::hmac_vec(&self.signature, predicate.as_bytes())).to_vec();
-        self.caveats.push(Caveat::new_first_party(predicate));
+        self.caveats.push(box caveat::new_first_party(predicate));
         Ok(())
     }
 
@@ -58,17 +58,19 @@ impl Macaroon {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key)?;
         let vid: Vec<u8> = crypto::encrypt(self.signature.as_slice(), derived_key);
         let signature = crypto::hmac2(&self.signature, &vid, id.as_bytes())?.to_vec();
-        self.caveats.push(Caveat::new_third_party(id, vid, location));
+        self.caveats.push(box caveat::new_third_party(id, vid, location));
         self.signature = signature;
         Ok(())
     }
 
     pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
-        match format {
+        let result = match format {
             serialization::Format::V1 => serialization::v1::serialize_v1(self),
             serialization::Format::V2 => serialization::v2::serialize_v2(self),
             serialization::Format::V2J => serialization::v2j::serialize_v2j(self),
-        }
+        };
+        println!("{:?}", result);
+        result
     }
 
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
@@ -86,6 +88,7 @@ impl Macaroon {
 
 pub type VerifierCallback = fn(&Caveat) -> Result<bool, MacaroonError>;
 
+#[allow(dead_code)]
 pub struct Verifier {
     predicates: Vec<String>,
     callbacks: Vec<VerifierCallback>,
@@ -137,9 +140,9 @@ mod tests {
         assert!(cav_result.is_ok());
         assert_eq!(1, macaroon.caveats.len());
         let ref caveat = macaroon.caveats[0];
-        assert_eq!("predicate", caveat.id);
-        assert_eq!(None, caveat.verifier_id);
-        assert_eq!(None, caveat.location);
+        assert_eq!("predicate", caveat.get_predicate().unwrap());
+        assert_eq!(None, caveat.get_verifier_id());
+        assert_eq!(None, caveat.get_location());
         assert_eq!(signature.to_vec(), macaroon.signature);
     }
 }

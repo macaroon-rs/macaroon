@@ -2,7 +2,7 @@ use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
-use super::super::caveat::Caveat;
+use super::super::caveat::CaveatBuilder;
 use super::super::macaroon::Macaroon;
 use super::super::error::MacaroonError;
 
@@ -28,8 +28,9 @@ struct V2JSerialization {
     s64: Option<String>,
 }
 
-impl<'r> From<&'r Macaroon> for V2JSerialization {
-    fn from(macaroon: &Macaroon) -> V2JSerialization {
+impl TryFrom<Macaroon> for V2JSerialization {
+    type Err = MacaroonError;
+    fn try_from(macaroon: Macaroon) -> Result<Self, Self::Err> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
             i: Some(macaroon.identifier.clone()),
@@ -40,19 +41,19 @@ impl<'r> From<&'r Macaroon> for V2JSerialization {
             s: None,
             s64: Some(macaroon.signature.to_base64(STANDARD)),
         };
-        for caveat in macaroon.caveats.clone() {
+        for caveat in macaroon.caveats {
             let serialized_caveat: CaveatV2J = CaveatV2J {
-                i: Some(caveat.id),
+                i: Some(String::from(caveat.get_serialized_id()?)),
                 i64: None,
-                l: caveat.location,
+                l: caveat.get_location().map(|s| String::from(s)),
                 l64: None,
-                v: caveat.verifier_id,
+                v: caveat.get_verifier_id(),
                 v64: None,
             };
             serialized.c.push(serialized_caveat);
         }
 
-        serialized
+        Ok(serialized)
     }
 }
 
@@ -106,9 +107,9 @@ impl TryFrom<V2JSerialization> for Macaroon {
             }
         };
 
-        let mut caveat: Caveat = Default::default();
+        let mut builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
-            caveat.id = match c.i {
+            builder.add_id(match c.i {
                 Some(id) => id,
                 None => {
                     match c.i64 {
@@ -119,27 +120,27 @@ impl TryFrom<V2JSerialization> for Macaroon {
                         }
                     }
                 }
-            };
-            caveat.location = match c.l {
-                Some(loc) => Some(loc),
+            });
+            match c.l {
+                Some(loc) => builder.add_location(loc),
                 None => {
                     match c.l64 {
-                        Some(loc64) => Some(String::from_utf8(loc64.from_base64()?)?),
-                        None => None,
+                        Some(loc64) => builder.add_location(String::from_utf8(loc64.from_base64()?)?),
+                        None => (),
                     }
                 }
             };
-            caveat.verifier_id = match c.v {
-                Some(vid) => Some(vid),
+            match c.v {
+                Some(vid) => builder.add_verifier_id(vid),
                 None => {
                     match c.v64 {
-                        Some(vid64) => Some(vid64.from_base64()?),
-                        None => None,
+                        Some(vid64) => builder.add_verifier_id(vid64.from_base64()?),
+                        None => (),
                     }
                 }
             };
-            macaroon.caveats.push(caveat);
-            caveat = Default::default();
+            macaroon.caveats.push(builder.build()?);
+            builder = CaveatBuilder::new();
         }
 
         Ok(macaroon)
@@ -147,13 +148,12 @@ impl TryFrom<V2JSerialization> for Macaroon {
 }
 
 pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
-    let serialized: String = serde_json::to_string(&V2JSerialization::from(macaroon))?;
+    let serialized: String = serde_json::to_string(&V2JSerialization::try_from(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
 pub fn deserialize_v2j(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     let v2j: V2JSerialization = serde_json::from_slice(data.as_slice())?;
-    println!("{:?}", v2j);
     Macaroon::try_from(v2j)
 }
 
@@ -177,12 +177,8 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", macaroon.identifier);
         assert_eq!(2, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].id);
-        assert_eq!(None, macaroon.caveats[0].verifier_id);
-        assert_eq!(None, macaroon.caveats[0].location);
-        assert_eq!("user = alice", macaroon.caveats[1].id);
-        assert_eq!(None, macaroon.caveats[0].verifier_id);
-        assert_eq!(None, macaroon.caveats[0].location);
+        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
     }
 

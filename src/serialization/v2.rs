@@ -1,4 +1,4 @@
-use super::super::caveat::Caveat;
+use super::super::caveat::CaveatBuilder;
 use super::super::macaroon::Macaroon;
 use super::super::error::MacaroonError;
 
@@ -43,14 +43,14 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
                        &mut buffer);
     buffer.push(EOS_V2);
     for caveat in &macaroon.caveats {
-        match caveat.location {
+        match caveat.get_location() {
             Some(ref location) => {
                 serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
             }
             None => (),
         }
-        serialize_field_v2(IDENTIFIER_V2, &caveat.id.as_bytes().to_vec(), &mut buffer);
-        match caveat.verifier_id {
+        serialize_field_v2(IDENTIFIER_V2, &caveat.get_serialized_id()?.as_bytes().to_vec(), &mut buffer);
+        match caveat.get_verifier_id() {
             Some(ref id) => serialize_field_v2(VID_V2, &id, &mut buffer),
             None => (),
         }
@@ -152,24 +152,24 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     try!(deserializer.get_eos());
     tag = try!(deserializer.get_tag());
     while tag != EOS_V2 {
-        let mut caveat: Caveat = Default::default();
+        let mut builder: CaveatBuilder = CaveatBuilder::new();
         match tag {
             LOCATION_V2 => {
                 let field: Vec<u8> = try!(deserializer.get_field());
-                caveat.location = Some(String::from_utf8(field)?);
+                builder.add_location(String::from_utf8(field)?);
             }
-            IDENTIFIER_V2 => caveat.id = String::from_utf8(try!(deserializer.get_field()))?,
+            IDENTIFIER_V2 => builder.add_id(String::from_utf8(try!(deserializer.get_field()))?),
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Caveat identifier \
                                                                              not found")))
             }
         }
-        if caveat.location.is_some() {
+        if builder.has_location() {
             tag = try!(deserializer.get_tag());
             match tag {
                 IDENTIFIER_V2 => {
                     let field: Vec<u8> = try!(deserializer.get_field());
-                    caveat.id = String::from_utf8(field)?;
+                    builder.add_id(String::from_utf8(field)?);
                 }
                 _ => {
                     return Err(MacaroonError::DeserializationError(String::from("Caveat identifier \
@@ -181,13 +181,13 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match tag {
             VID_V2 => {
                 let field: Vec<u8> = try!(deserializer.get_field());
-                caveat.verifier_id = Some(field);
-                macaroon.caveats.push(caveat);
+                builder.add_verifier_id(field);
+                macaroon.caveats.push(builder.build()?);
                 try!(deserializer.get_eos());
                 tag = try!(deserializer.get_tag());
             }
             EOS_V2 => {
-                macaroon.caveats.push(caveat);
+                macaroon.caveats.push(builder.build()?);
                 tag = try!(deserializer.get_tag());
             }
             _ => {
@@ -208,7 +208,7 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use serialize::base64::FromBase64;
-    use super::super::super::caveat::Caveat;
+    use super::super::super::caveat::{self, Caveat};
     use super::super::super::macaroon::Macaroon;
 
     const SERIALIZED_V2: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
@@ -223,28 +223,16 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", macaroon.identifier);
         assert_eq!(2, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].id);
-        assert_eq!(None, macaroon.caveats[0].verifier_id);
-        assert_eq!(None, macaroon.caveats[0].location);
-        assert_eq!("user = alice", macaroon.caveats[1].id);
-        assert_eq!(None, macaroon.caveats[0].verifier_id);
-        assert_eq!(None, macaroon.caveats[0].location);
+        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
     }
 
     #[test]
     fn test_serialize_v2() {
-        let mut caveats: Vec<Caveat> = Vec::new();
-        caveats.push(Caveat {
-            id: String::from("account = 3735928559"),
-            verifier_id: None,
-            location: None,
-        });
-        caveats.push(Caveat {
-            id: String::from("user = alice"),
-            verifier_id: None,
-            location: None,
-        });
+        let mut caveats: Vec<Box<Caveat>> = Vec::new();
+        caveats.push(box caveat::new_first_party("account = 3735928559"));
+        caveats.push(box caveat::new_first_party("user = alice"));
         let macaroon: Macaroon = Macaroon {
             location: Some(String::from("http://example.org/")),
             identifier: String::from("keyid"),

@@ -1,31 +1,143 @@
 use error::MacaroonError;
+use std::any::Any;
+use std::fmt::Debug;
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Caveat {
-    pub id: String,
-    pub verifier_id: Option<Vec<u8>>,
-    pub location: Option<String>,
+pub trait Caveat: Any + Debug {
+    fn get_id(&self) -> Option<&str>;
+    fn get_predicate(&self) -> Option<&str>;
+    fn get_verifier_id(&self) -> Option<Vec<u8>>;
+    fn get_location(&self) -> Option<&str>;
+    fn verify(&self) -> Result<bool, MacaroonError>;
+    fn get_type(&self) -> &'static str;
+    fn as_any(&self) -> &Any;
+
+    // Required for Clone below
+    fn clone_box(&self) -> Box<Caveat>;
+
+    fn get_serialized_id(&self) -> Result<&str, MacaroonError> {
+        match self.get_id() {
+            Some(id) => Ok(id),
+            None => match self.get_predicate() {
+                Some(predicate) => Ok(predicate),
+                None => Err(MacaroonError::BadMacaroon("No id found")),
+            }
+        }
+    }
 }
 
-impl Caveat {
-    pub fn new_first_party(predicate: &str) -> Caveat {
-        Caveat {
-            id: String::from(predicate),
-            verifier_id: None,
-            location: None,
+impl Clone for Box<Caveat> {
+    fn clone(&self) -> Box<Caveat> {
+        self.clone_box()
+    }
+}
+
+impl PartialEq for Caveat {
+    fn eq(&self, other: &Caveat) -> bool {
+        let me = self.as_any();
+        let you = other.as_any();
+        if me.is::<FirstPartyCaveat>() && you.is::<FirstPartyCaveat>() {
+            self.get_predicate() == other.get_predicate()
+        } else if me.is::<ThirdPartyCaveat>() && you.is::<ThirdPartyCaveat>() {
+            self.get_id() == other.get_id() &&
+                self.get_location() == other.get_location() &&
+                self.get_verifier_id() == other.get_verifier_id()
+        } else {
+            false
         }
     }
+}
 
-    pub fn new_third_party(id: &str, verifier_id: Vec<u8>, location: &str) -> Caveat {
-        Caveat {
-            id: String::from(id),
-            verifier_id: Some(verifier_id),
-            location: Some(String::from(location)),
-        }
+#[derive(Clone, Debug)]
+pub struct FirstPartyCaveat {
+    pub predicate: String,
+}
+
+impl Caveat for FirstPartyCaveat {
+    fn get_id(&self) -> Option<&str> {
+        None
     }
 
-    pub fn verify(&self) -> Result<bool, MacaroonError> {
-        Ok(true)
+    fn get_predicate(&self) -> Option<&str>{
+        Some(&self.predicate)
+    }
+
+    fn get_verifier_id(&self) -> Option<Vec<u8>> {
+        None
+    }
+
+    fn get_location(&self) -> Option<&str> {
+        None
+    }
+
+    fn get_type(&self) -> &'static str {
+        "FirstPartyCaveat"
+    }
+
+    fn clone_box(&self) -> Box<Caveat> {
+        box self.clone()
+    }
+
+    fn verify(&self) -> Result<bool, MacaroonError> {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &Any {
+        self
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ThirdPartyCaveat {
+    pub id: String,
+    pub verifier_id: Vec<u8>,
+    pub location: String,
+}
+
+impl Caveat for ThirdPartyCaveat {
+    fn get_id(&self) -> Option<&str> {
+        Some(&self.id)
+    }
+
+    fn get_predicate(&self) -> Option<&str>{
+        None
+    }
+
+    fn get_verifier_id(&self) -> Option<Vec<u8>> {
+        Some(self.verifier_id.clone())
+    }
+
+    fn get_location(&self) -> Option<&str> {
+        Some(&self.location)
+    }
+
+    fn clone_box(&self) -> Box<Caveat> {
+        box self.clone()
+    }
+
+    fn get_type(&self) -> &'static str {
+        "ThirdPartyCaveat"
+    }
+
+    fn verify(&self) -> Result<bool, MacaroonError> {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &Any {
+        self
+    }
+}
+
+pub fn new_first_party(predicate: &str) -> FirstPartyCaveat {
+    FirstPartyCaveat {
+        predicate: String::from(predicate),
+    }
+}
+
+pub fn new_third_party(id: &str, verifier_id: Vec<u8>, location: &str) -> ThirdPartyCaveat {
+    ThirdPartyCaveat {
+        id: String::from(id),
+        verifier_id: verifier_id,
+        location: String::from(location),
     }
 }
 
@@ -57,15 +169,19 @@ impl CaveatBuilder {
         self.location = Some(location);
     }
 
-    pub fn build(self) -> Result<Caveat, MacaroonError> {
+    pub fn has_location(&self) -> bool {
+        self.location.is_some()
+    }
+
+    pub fn build(self) -> Result<Box<Caveat>, MacaroonError> {
         if self.id.is_none() {
             return Err(MacaroonError::BadMacaroon("No identifier found"));
         }
         if self.verifier_id.is_none() && self.location.is_none() {
-            return Ok(Caveat::new_first_party(&self.id.unwrap()));
+            return Ok(box new_first_party(&self.id.unwrap()));
         }
         if self.verifier_id.is_some() && self.location.is_some() {
-            return Ok(Caveat::new_third_party(&self.id.unwrap(),
+            return Ok(box new_third_party(&self.id.unwrap(),
                                               self.verifier_id.unwrap(),
                                               &self.location.unwrap()));
         }

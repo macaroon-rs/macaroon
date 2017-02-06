@@ -51,12 +51,12 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     };
     serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.identifier.as_bytes()));
     for caveat in &macaroon.caveats {
-        serialized.extend(serialize_as_packet(CID_V1, caveat.id.as_bytes()));
-        match caveat.verifier_id {
+        serialized.extend(serialize_as_packet(CID_V1, caveat.get_serialized_id()?.as_bytes()));
+        match caveat.get_verifier_id() {
             Some(ref verifier_id) => serialized.extend(serialize_as_packet(VID_V1, &verifier_id)),
             None => (),
         }
-        match caveat.location {
+        match caveat.get_location() {
             Some(ref location) => {
                 serialized.extend(serialize_as_packet(CL_V1, location.as_bytes()))
             }
@@ -164,15 +164,15 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", &macaroon.identifier);
         assert_eq!(1, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].id);
-        assert_eq!(None, macaroon.caveats[0].verifier_id);
-        assert_eq!(None, macaroon.caveats[0].location);
+        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!(None, macaroon.caveats[0].get_verifier_id());
+        assert_eq!(None, macaroon.caveats[0].get_location());
         assert_eq!(SIGNATURE_V1_WITH_CAVEAT.to_vec(), macaroon.signature);
     }
 
     #[test]
     fn test_serialize_deserialize_v1() {
-        let macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid").unwrap();
+        let macaroon: Macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid").unwrap();
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);
