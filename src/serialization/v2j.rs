@@ -94,7 +94,7 @@ impl TryFrom<V2JSerialization> for Macaroon {
             }
         };
 
-        macaroon.signature = match ser.s {
+        macaroon.signature.clone_from_slice(&match ser.s {
             Some(sig) => sig,
             None => {
                 match ser.s64 {
@@ -105,7 +105,7 @@ impl TryFrom<V2JSerialization> for Macaroon {
                     }
                 }
             }
-        };
+        });
 
         let mut builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
@@ -125,7 +125,9 @@ impl TryFrom<V2JSerialization> for Macaroon {
                 Some(loc) => builder.add_location(loc),
                 None => {
                     match c.l64 {
-                        Some(loc64) => builder.add_location(String::from_utf8(loc64.from_base64()?)?),
+                        Some(loc64) => {
+                            builder.add_location(String::from_utf8(loc64.from_base64()?)?)
+                        }
                         None => (),
                     }
                 }
@@ -177,7 +179,8 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", macaroon.identifier);
         assert_eq!(2, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!("account = 3735928559",
+                   macaroon.caveats[0].get_predicate().unwrap());
         assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
     }

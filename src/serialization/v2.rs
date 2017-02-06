@@ -23,7 +23,7 @@ fn varint_size(size: usize) -> Vec<u8> {
     buffer
 }
 
-fn serialize_field_v2(tag: u8, value: &Vec<u8>, buffer: &mut Vec<u8>) {
+fn serialize_field_v2(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
     buffer.push(tag);
     buffer.extend(varint_size(value.len()));
     buffer.extend(value);
@@ -49,7 +49,9 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
             }
             None => (),
         }
-        serialize_field_v2(IDENTIFIER_V2, &caveat.get_serialized_id()?.as_bytes().to_vec(), &mut buffer);
+        serialize_field_v2(IDENTIFIER_V2,
+                           &caveat.get_serialized_id()?.as_bytes().to_vec(),
+                           &mut buffer);
         match caveat.get_verifier_id() {
             Some(ref id) => serialize_field_v2(VID_V2, &id, &mut buffer),
             None => (),
@@ -198,7 +200,11 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     }
     tag = try!(deserializer.get_tag());
     if tag == SIGNATURE_V2 {
-        macaroon.signature = try!(deserializer.get_field());
+        let sig: Vec<u8> = try!(deserializer.get_field());
+        if sig.len() != 32 {
+            return Err(MacaroonError::DeserializationError(String::from("Bad signature length")));
+        }
+        macaroon.signature.clone_from_slice(&sig);
     } else {
         return Err(MacaroonError::DeserializationError(String::from("Unexpected tag found")));
     }
@@ -223,7 +229,8 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", macaroon.identifier);
         assert_eq!(2, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!("account = 3735928559",
+                   macaroon.caveats[0].get_predicate().unwrap());
         assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
     }
@@ -237,7 +244,7 @@ mod tests {
             location: Some(String::from("http://example.org/")),
             identifier: String::from("keyid"),
             caveats: caveats,
-            signature: SIGNATURE_V2.to_vec(),
+            signature: SIGNATURE_V2,
         };
         let serialized = super::serialize_v2(&macaroon).unwrap();
         assert_eq!(SERIALIZED_V2.from_base64().unwrap(), serialized);

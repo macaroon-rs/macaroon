@@ -17,9 +17,11 @@ pub trait Caveat: Any + Debug {
     fn get_serialized_id(&self) -> Result<&str, MacaroonError> {
         match self.get_id() {
             Some(id) => Ok(id),
-            None => match self.get_predicate() {
-                Some(predicate) => Ok(predicate),
-                None => Err(MacaroonError::BadMacaroon("No id found")),
+            None => {
+                match self.get_predicate() {
+                    Some(predicate) => Ok(predicate),
+                    None => Err(MacaroonError::BadMacaroon("No id found")),
+                }
             }
         }
     }
@@ -38,9 +40,8 @@ impl PartialEq for Caveat {
         if me.is::<FirstPartyCaveat>() && you.is::<FirstPartyCaveat>() {
             self.get_predicate() == other.get_predicate()
         } else if me.is::<ThirdPartyCaveat>() && you.is::<ThirdPartyCaveat>() {
-            self.get_id() == other.get_id() &&
-                self.get_location() == other.get_location() &&
-                self.get_verifier_id() == other.get_verifier_id()
+            self.get_id() == other.get_id() && self.get_location() == other.get_location() &&
+            self.get_verifier_id() == other.get_verifier_id()
         } else {
             false
         }
@@ -57,7 +58,7 @@ impl Caveat for FirstPartyCaveat {
         None
     }
 
-    fn get_predicate(&self) -> Option<&str>{
+    fn get_predicate(&self) -> Option<&str> {
         Some(&self.predicate)
     }
 
@@ -98,7 +99,7 @@ impl Caveat for ThirdPartyCaveat {
         Some(&self.id)
     }
 
-    fn get_predicate(&self) -> Option<&str>{
+    fn get_predicate(&self) -> Option<&str> {
         None
     }
 
@@ -128,9 +129,7 @@ impl Caveat for ThirdPartyCaveat {
 }
 
 pub fn new_first_party(predicate: &str) -> FirstPartyCaveat {
-    FirstPartyCaveat {
-        predicate: String::from(predicate),
-    }
+    FirstPartyCaveat { predicate: String::from(predicate) }
 }
 
 pub fn new_third_party(id: &str, verifier_id: Vec<u8>, location: &str) -> ThirdPartyCaveat {
@@ -182,8 +181,8 @@ impl CaveatBuilder {
         }
         if self.verifier_id.is_some() && self.location.is_some() {
             return Ok(box new_third_party(&self.id.unwrap(),
-                                              self.verifier_id.unwrap(),
-                                              &self.location.unwrap()));
+                                          self.verifier_id.unwrap(),
+                                          &self.location.unwrap()));
         }
         if self.verifier_id.is_none() {
             return Err(MacaroonError::BadMacaroon("Location but no verifier ID found"));

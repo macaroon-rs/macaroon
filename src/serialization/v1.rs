@@ -118,9 +118,12 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                     macaroon.caveats.push(builder.build()?);
                     builder = CaveatBuilder::new();
                 }
-                let mut signature: Vec<u8> = Vec::new();
-                signature.extend_from_slice(&packet.value[..32]);
-                macaroon.signature = signature;
+                if packet.value.len() != 33 {
+                    return Err(MacaroonError::DeserializationError(String::from("Illegal signature \
+                                                                                 length in \
+                                                                                 packet")));
+                }
+                macaroon.signature.clone_from_slice(&packet.value[..32]);
             }
             CID_V1 => {
                 if builder.has_id() {
@@ -164,7 +167,8 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location.unwrap());
         assert_eq!("keyid", &macaroon.identifier);
         assert_eq!(1, macaroon.caveats.len());
-        assert_eq!("account = 3735928559", macaroon.caveats[0].get_predicate().unwrap());
+        assert_eq!("account = 3735928559",
+                   macaroon.caveats[0].get_predicate().unwrap());
         assert_eq!(None, macaroon.caveats[0].get_verifier_id());
         assert_eq!(None, macaroon.caveats[0].get_location());
         assert_eq!(SIGNATURE_V1_WITH_CAVEAT.to_vec(), macaroon.signature);
@@ -172,7 +176,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_v1() {
-        let macaroon: Macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid").unwrap();
+        let macaroon: Macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid")
+            .unwrap();
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);
