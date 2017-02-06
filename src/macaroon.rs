@@ -39,19 +39,27 @@ impl Macaroon {
         Ok(self)
     }
 
-    #[allow(unused_variables)]
-    pub fn verify_signature(&self, key: &[u8; 32]) -> Result<bool, MacaroonError> {
-        unimplemented!()
+    pub fn verify_signature(&self, key: &[u8; 32]) -> bool {
+        let derived_key: [u8;32] = crypto::generate_derived_key(key);
+        let mut signature: [u8;32] = crypto::hmac(&derived_key, self.identifier.as_bytes());
+        for ref caveat in &self.caveats {
+            signature = caveat.sign(&signature);
+        }
+        signature == self.signature
     }
 
     #[allow(unused_variables)]
     pub fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError> {
+        if !self.verify_signature(key) {
+            return Ok(false);
+        }
         unimplemented!()
     }
 
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) -> Result<(), MacaroonError> {
-        self.signature = crypto::hmac(&self.signature, predicate.as_bytes());
-        self.caveats.push(box caveat::new_first_party(predicate));
+        let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
+        self.signature = caveat.sign(&self.signature);
+        self.caveats.push(box caveat);
         Ok(())
     }
 
@@ -62,9 +70,9 @@ impl Macaroon {
                                   -> Result<(), MacaroonError> {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
         let vid: Vec<u8> = crypto::encrypt(&self.signature, derived_key);
-        let signature = crypto::hmac2(&self.signature, &vid, id.as_bytes());
-        self.caveats.push(box caveat::new_third_party(id, vid, location));
-        self.signature = signature;
+        let caveat: caveat::ThirdPartyCaveat = caveat::new_third_party(id, vid, location);
+        self.signature = caveat.sign(&self.signature);
+        self.caveats.push(box caveat);
         Ok(())
     }
 

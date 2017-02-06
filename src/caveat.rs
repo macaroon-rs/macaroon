@@ -1,4 +1,5 @@
 use error::MacaroonError;
+use crypto;
 use std::any::Any;
 use std::fmt::Debug;
 
@@ -10,6 +11,7 @@ pub trait Caveat: Any + Debug {
     fn verify(&self) -> Result<bool, MacaroonError>;
     fn get_type(&self) -> &'static str;
     fn as_any(&self) -> &Any;
+    fn sign(&self, key: &[u8;32]) -> [u8;32];
 
     // Required for Clone below
     fn clone_box(&self) -> Box<Caveat>;
@@ -85,6 +87,10 @@ impl Caveat for FirstPartyCaveat {
     fn as_any(&self) -> &Any {
         self
     }
+
+    fn sign(&self, key: &[u8;32]) -> [u8;32] {
+        crypto::hmac(key, self.predicate.as_bytes())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -125,6 +131,10 @@ impl Caveat for ThirdPartyCaveat {
 
     fn as_any(&self) -> &Any {
         self
+    }
+
+    fn sign(&self, key: &[u8;32]) -> [u8;32] {
+        crypto::hmac2(key, &self.verifier_id, self.id.as_bytes())
     }
 }
 
