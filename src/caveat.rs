@@ -9,7 +9,7 @@ pub trait Caveat: Any + Debug {
     fn get_predicate(&self) -> Option<&str>;
     fn get_verifier_id(&self) -> Option<Vec<u8>>;
     fn get_location(&self) -> Option<&str>;
-    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError>;
+    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> bool;
     fn get_type(&self) -> &'static str;
     fn as_any(&self) -> &Any;
     fn sign(&self, key: &[u8; 32]) -> [u8; 32];
@@ -81,22 +81,12 @@ impl Caveat for FirstPartyCaveat {
         box self.clone()
     }
 
-    fn verify(&self, _: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError> {
-        for predicate in &verifier.predicates {
-            if *predicate == self.predicate {
-                return Ok(true);
-            }
+    fn verify(&self, _: &[u8; 32], verifier: &Verifier) -> bool {
+        if verifier.verify_predicate(&self.predicate) {
+            return true;
         }
 
-        for ref callback in &verifier.callbacks {
-            match callback(self) {
-                Ok(true) => return Ok(true),
-                Ok(false) => (),
-                Err(error) => return Err(error),
-            };
-        }
-
-        Ok(false)
+        false
     }
 
     fn as_any(&self) -> &Any {
@@ -141,7 +131,7 @@ impl Caveat for ThirdPartyCaveat {
     }
 
     #[allow(unused_variables)]
-    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError> {
+    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> bool {
         unimplemented!()
     }
 

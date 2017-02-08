@@ -1,13 +1,11 @@
-use caveat::Caveat;
 use error::MacaroonError;
 use macaroon::Macaroon;
 
-pub type VerifierCallback = fn(&Caveat) -> Result<bool, MacaroonError>;
+pub type VerifierCallback = fn(&str) -> bool;
 
-#[allow(dead_code)]
 pub struct Verifier {
-    pub predicates: Vec<String>,
-    pub callbacks: Vec<VerifierCallback>,
+    predicates: Vec<String>,
+    callbacks: Vec<VerifierCallback>,
 }
 
 impl Verifier {
@@ -16,6 +14,28 @@ impl Verifier {
             predicates: Vec::new(),
             callbacks: Vec::new(),
         }
+    }
+
+    pub fn satisfy_exact(&mut self, predicate: &str) {
+        self.predicates.push(String::from(predicate));
+    }
+
+    pub fn satisfy_general(&mut self, callback: VerifierCallback) {
+        self.callbacks.push(callback);
+    }
+
+    pub fn verify_predicate(&self, predicate: &str) -> bool {
+        let mut count = self.predicates.iter().filter(|&p| p == predicate).count();
+        if count > 0 {
+            return true;
+        }
+
+        count = self.callbacks.iter().filter(|&callback| callback(predicate)).count();
+        if count > 0 {
+            return true;
+        }
+
+        false
     }
 
     pub fn verify(macaroon: &Macaroon,
