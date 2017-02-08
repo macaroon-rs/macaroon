@@ -1,7 +1,7 @@
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
 use super::super::caveat::CaveatBuilder;
-use super::super::macaroon::Macaroon;
+use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
 // Version 1 fields
@@ -43,14 +43,14 @@ fn packet_header(size: usize) -> Vec<u8> {
 
 pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut serialized: Vec<u8> = Vec::new();
-    match macaroon.location {
+    match macaroon.get_location() {
         Some(ref location) => {
             serialized.extend(serialize_as_packet(LOCATION_V1, location.as_bytes()))
         }
         None => (),
     };
-    serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.identifier.as_bytes()));
-    for caveat in &macaroon.caveats {
+    serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.get_identifier().as_bytes()));
+    for caveat in macaroon.get_caveats() {
         serialized.extend(serialize_as_packet(CID_V1, caveat.get_serialized_id()?.as_bytes()));
         match caveat.get_verifier_id() {
             Some(ref verifier_id) => serialized.extend(serialize_as_packet(VID_V1, &verifier_id)),
@@ -63,7 +63,7 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
             None => (),
         }
     }
-    serialized.extend(serialize_as_packet(SIGNATURE_V1, &macaroon.signature));
+    serialized.extend(serialize_as_packet(SIGNATURE_V1, macaroon.get_signature()));
     Ok(serialized.to_base64(STANDARD).as_bytes().to_vec())
 }
 
@@ -103,42 +103,44 @@ fn get_split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
 
 pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     let data = try!(base64_decode(&String::from_utf8(base64.clone())?));
-    let mut macaroon: Macaroon = Default::default();
-    let mut builder: CaveatBuilder = CaveatBuilder::new();
+    let mut builder: MacaroonBuilder = MacaroonBuilder::new();
+    let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
     for packet in try!(deserialize_as_packets(data.as_slice(), Vec::new())) {
         match packet.key.as_str() {
             LOCATION_V1 => {
-                macaroon.location = Some(String::from(String::from_utf8(packet.value)?.trim()))
+                builder.set_location(String::from_utf8(packet.value)?.trim());
             }
             IDENTIFIER_V1 => {
-                macaroon.identifier = String::from(String::from_utf8(packet.value)?.trim())
+                builder.set_identifier(String::from_utf8(packet.value)?.trim());
             }
             SIGNATURE_V1 => {
-                if builder.has_id() {
-                    macaroon.caveats.push(builder.build()?);
-                    builder = CaveatBuilder::new();
+                if caveat_builder.has_id() {
+                    builder.add_caveat(caveat_builder.build()?);
+                    caveat_builder = CaveatBuilder::new();
                 }
                 if packet.value.len() != 33 {
                     return Err(MacaroonError::DeserializationError(String::from("Illegal signature \
                                                                                  length in \
                                                                                  packet")));
                 }
-                macaroon.signature.clone_from_slice(&packet.value[..32]);
+                builder.set_signature(&packet.value[..32]);
             }
             CID_V1 => {
-                if builder.has_id() {
-                    macaroon.caveats.push(builder.build()?);
-                    builder = CaveatBuilder::new();
+                if caveat_builder.has_id() {
+                    builder.add_caveat(caveat_builder.build()?);
+                    caveat_builder = CaveatBuilder::new();
                 } else {
-                    builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
+                    caveat_builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
                 }
             }
-            VID_V1 => builder.add_verifier_id(packet.value),
-            CL_V1 => builder.add_location(String::from(String::from_utf8(packet.value)?.trim())),
+            VID_V1 => caveat_builder.add_verifier_id(packet.value),
+            CL_V1 => {
+                caveat_builder.add_location(String::from(String::from_utf8(packet.value)?.trim()))
+            }
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),
         };
     }
-    Ok(macaroon)
+    Ok(builder.build()?)
 }
 
 #[cfg(test)]
@@ -157,21 +159,21 @@ mod tests {
     #[test]
     fn test_deserialize_v1() {
         let macaroon = super::deserialize_v1(&SERIALIZED_V1.as_bytes().to_vec()).unwrap();
-        assert!(macaroon.location.is_some());
-        assert_eq!("http://example.org/", &macaroon.location.unwrap());
-        assert_eq!("keyid", &macaroon.identifier);
-        assert_eq!(SIGNATURE_V1.to_vec(), macaroon.signature);
+        assert!(macaroon.get_location().is_some());
+        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
+        assert_eq!("keyid", macaroon.get_identifier());
+        assert_eq!(SIGNATURE_V1.to_vec(), macaroon.get_signature());
         let macaroon = super::deserialize_v1(&SERIALIZED_V1_WITH_CAVEAT.as_bytes().to_vec())
             .unwrap();
-        assert!(macaroon.location.is_some());
-        assert_eq!("http://example.org/", &macaroon.location.unwrap());
-        assert_eq!("keyid", &macaroon.identifier);
-        assert_eq!(1, macaroon.caveats.len());
+        assert!(macaroon.get_location().is_some());
+        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
+        assert_eq!("keyid", macaroon.get_identifier());
+        assert_eq!(1, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.caveats[0].get_predicate().unwrap());
-        assert_eq!(None, macaroon.caveats[0].get_verifier_id());
-        assert_eq!(None, macaroon.caveats[0].get_location());
-        assert_eq!(SIGNATURE_V1_WITH_CAVEAT.to_vec(), macaroon.signature);
+                   macaroon.get_caveats()[0].get_predicate().unwrap());
+        assert_eq!(None, macaroon.get_caveats()[0].get_verifier_id());
+        assert_eq!(None, macaroon.get_caveats()[0].get_location());
+        assert_eq!(SIGNATURE_V1_WITH_CAVEAT.to_vec(), macaroon.get_signature());
     }
 
     #[test]

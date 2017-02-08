@@ -1,5 +1,6 @@
-use error::MacaroonError;
 use crypto;
+use error::MacaroonError;
+use verifier::Verifier;
 use std::any::Any;
 use std::fmt::Debug;
 
@@ -8,10 +9,10 @@ pub trait Caveat: Any + Debug {
     fn get_predicate(&self) -> Option<&str>;
     fn get_verifier_id(&self) -> Option<Vec<u8>>;
     fn get_location(&self) -> Option<&str>;
-    fn verify(&self) -> Result<bool, MacaroonError>;
+    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError>;
     fn get_type(&self) -> &'static str;
     fn as_any(&self) -> &Any;
-    fn sign(&self, key: &[u8;32]) -> [u8;32];
+    fn sign(&self, key: &[u8; 32]) -> [u8; 32];
 
     // Required for Clone below
     fn clone_box(&self) -> Box<Caveat>;
@@ -80,15 +81,29 @@ impl Caveat for FirstPartyCaveat {
         box self.clone()
     }
 
-    fn verify(&self) -> Result<bool, MacaroonError> {
-        unimplemented!()
+    fn verify(&self, _: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError> {
+        for predicate in &verifier.predicates {
+            if *predicate == self.predicate {
+                return Ok(true);
+            }
+        }
+
+        for ref callback in &verifier.callbacks {
+            match callback(self) {
+                Ok(true) => return Ok(true),
+                Ok(false) => (),
+                Err(error) => return Err(error),
+            };
+        }
+
+        Ok(false)
     }
 
     fn as_any(&self) -> &Any {
         self
     }
 
-    fn sign(&self, key: &[u8;32]) -> [u8;32] {
+    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
         crypto::hmac(key, self.predicate.as_bytes())
     }
 }
@@ -125,7 +140,8 @@ impl Caveat for ThirdPartyCaveat {
         "ThirdPartyCaveat"
     }
 
-    fn verify(&self) -> Result<bool, MacaroonError> {
+    #[allow(unused_variables)]
+    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> Result<bool, MacaroonError> {
         unimplemented!()
     }
 
@@ -133,7 +149,7 @@ impl Caveat for ThirdPartyCaveat {
         self
     }
 
-    fn sign(&self, key: &[u8;32]) -> [u8;32] {
+    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
         crypto::hmac2(key, &self.verifier_id, self.id.as_bytes())
     }
 }

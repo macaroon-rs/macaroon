@@ -14,6 +14,7 @@ pub mod crypto;
 pub mod error;
 pub mod macaroon;
 pub mod serialization;
+pub mod verifier;
 
 use error::MacaroonError;
 

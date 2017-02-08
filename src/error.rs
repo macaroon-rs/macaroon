@@ -11,6 +11,7 @@ pub enum MacaroonError {
     DeserializationError(String),
     BadMacaroon(&'static str),
     KeyError(&'static str),
+    DecryptionError(&'static str),
 }
 
 impl From<serde_json::Error> for MacaroonError {

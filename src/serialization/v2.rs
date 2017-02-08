@@ -1,5 +1,5 @@
 use super::super::caveat::CaveatBuilder;
-use super::super::macaroon::Macaroon;
+use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
 // Version 2 fields
@@ -32,17 +32,17 @@ fn serialize_field_v2(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
 pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
-    match macaroon.location {
+    match macaroon.get_location() {
         Some(ref location) => {
             serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
         }
         None => (),
     };
     serialize_field_v2(IDENTIFIER_V2,
-                       &macaroon.identifier.as_bytes().to_vec(),
+                       &macaroon.get_identifier().as_bytes().to_vec(),
                        &mut buffer);
     buffer.push(EOS_V2);
-    for caveat in &macaroon.caveats {
+    for caveat in macaroon.get_caveats() {
         match caveat.get_location() {
             Some(ref location) => {
                 serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
@@ -59,7 +59,7 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         buffer.push(EOS_V2);
     }
     buffer.push(EOS_V2);
-    serialize_field_v2(SIGNATURE_V2, &macaroon.signature, &mut buffer);
+    serialize_field_v2(SIGNATURE_V2, &macaroon.get_signature(), &mut buffer);
     Ok(buffer)
 }
 
@@ -128,22 +128,24 @@ impl<'r> V2Deserializer<'r> {
 }
 
 pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
-    let mut macaroon: Macaroon = Default::default();
+    let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: V2Deserializer = V2Deserializer::new(data);
     if try!(deserializer.get_byte()) != 2 {
         return Err(MacaroonError::DeserializationError(String::from("Wrong version number")));
     }
     let mut tag: u8 = try!(deserializer.get_tag());
     match tag {
-        LOCATION_V2 => macaroon.location = Some(String::from_utf8(try!(deserializer.get_field()))?),
-        IDENTIFIER_V2 => macaroon.identifier = String::from_utf8(try!(deserializer.get_field()))?,
+        LOCATION_V2 => builder.set_location(&String::from_utf8(try!(deserializer.get_field()))?),
+        IDENTIFIER_V2 => {
+            builder.set_identifier(&String::from_utf8(try!(deserializer.get_field()))?)
+        }
         _ => return Err(MacaroonError::DeserializationError(String::from("Identifier not found"))),
     }
-    if macaroon.location.is_some() {
+    if builder.has_location() {
         tag = try!(deserializer.get_tag());
         match tag {
             IDENTIFIER_V2 => {
-                macaroon.identifier = String::from_utf8(try!(deserializer.get_field()))?
+                builder.set_identifier(&String::from_utf8(try!(deserializer.get_field()))?);
             }
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Identifier not \
@@ -154,24 +156,26 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
     try!(deserializer.get_eos());
     tag = try!(deserializer.get_tag());
     while tag != EOS_V2 {
-        let mut builder: CaveatBuilder = CaveatBuilder::new();
+        let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         match tag {
             LOCATION_V2 => {
                 let field: Vec<u8> = try!(deserializer.get_field());
-                builder.add_location(String::from_utf8(field)?);
+                caveat_builder.add_location(String::from_utf8(field)?);
             }
-            IDENTIFIER_V2 => builder.add_id(String::from_utf8(try!(deserializer.get_field()))?),
+            IDENTIFIER_V2 => {
+                caveat_builder.add_id(String::from_utf8(try!(deserializer.get_field()))?)
+            }
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Caveat identifier \
                                                                              not found")))
             }
         }
-        if builder.has_location() {
+        if caveat_builder.has_location() {
             tag = try!(deserializer.get_tag());
             match tag {
                 IDENTIFIER_V2 => {
                     let field: Vec<u8> = try!(deserializer.get_field());
-                    builder.add_id(String::from_utf8(field)?);
+                    caveat_builder.add_id(String::from_utf8(field)?);
                 }
                 _ => {
                     return Err(MacaroonError::DeserializationError(String::from("Caveat identifier \
@@ -183,13 +187,13 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         match tag {
             VID_V2 => {
                 let field: Vec<u8> = try!(deserializer.get_field());
-                builder.add_verifier_id(field);
-                macaroon.caveats.push(builder.build()?);
+                caveat_builder.add_verifier_id(field);
+                builder.add_caveat(caveat_builder.build()?);
                 try!(deserializer.get_eos());
                 tag = try!(deserializer.get_tag());
             }
             EOS_V2 => {
-                macaroon.caveats.push(builder.build()?);
+                builder.add_caveat(caveat_builder.build()?);
                 tag = try!(deserializer.get_tag());
             }
             _ => {
@@ -204,18 +208,18 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         if sig.len() != 32 {
             return Err(MacaroonError::DeserializationError(String::from("Bad signature length")));
         }
-        macaroon.signature.clone_from_slice(&sig);
+        builder.set_signature(&sig);
     } else {
         return Err(MacaroonError::DeserializationError(String::from("Unexpected tag found")));
     }
-    Ok(macaroon)
+    Ok(builder.build()?)
 }
 
 #[cfg(test)]
 mod tests {
     use serialize::base64::FromBase64;
-    use super::super::super::caveat::{self, Caveat};
-    use super::super::super::macaroon::Macaroon;
+    use super::super::super::caveat;
+    use super::super::super::macaroon::MacaroonBuilder;
 
     const SERIALIZED_V2: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
     const SIGNATURE_V2: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
@@ -226,27 +230,25 @@ mod tests {
     fn test_deserialize_v2() {
         let serialized_v2: Vec<u8> = SERIALIZED_V2.from_base64().unwrap();
         let macaroon = super::deserialize_v2(&serialized_v2).unwrap();
-        assert_eq!("http://example.org/", &macaroon.location.unwrap());
-        assert_eq!("keyid", macaroon.identifier);
-        assert_eq!(2, macaroon.caveats.len());
+        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
+        assert_eq!("keyid", macaroon.get_identifier());
+        assert_eq!(2, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.caveats[0].get_predicate().unwrap());
-        assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
-        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
+                   macaroon.get_caveats()[0].get_predicate().unwrap());
+        assert_eq!("user = alice",
+                   macaroon.get_caveats()[1].get_predicate().unwrap());
+        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
     }
 
     #[test]
     fn test_serialize_v2() {
-        let mut caveats: Vec<Box<Caveat>> = Vec::new();
-        caveats.push(box caveat::new_first_party("account = 3735928559"));
-        caveats.push(box caveat::new_first_party("user = alice"));
-        let macaroon: Macaroon = Macaroon {
-            location: Some(String::from("http://example.org/")),
-            identifier: String::from("keyid"),
-            caveats: caveats,
-            signature: SIGNATURE_V2,
-        };
-        let serialized = super::serialize_v2(&macaroon).unwrap();
+        let mut builder = MacaroonBuilder::new();
+        builder.add_caveat(box caveat::new_first_party("account = 3735928559"));
+        builder.add_caveat(box caveat::new_first_party("user = alice"));
+        builder.set_location("http://example.org/");
+        builder.set_identifier("keyid");
+        builder.set_signature(&SIGNATURE_V2);
+        let serialized = super::serialize_v2(&builder.build().unwrap()).unwrap();
         assert_eq!(SERIALIZED_V2.from_base64().unwrap(), serialized);
     }
 }

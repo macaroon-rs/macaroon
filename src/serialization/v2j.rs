@@ -3,7 +3,7 @@ use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
 use super::super::caveat::CaveatBuilder;
-use super::super::macaroon::Macaroon;
+use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -33,15 +33,15 @@ impl TryFrom<Macaroon> for V2JSerialization {
     fn try_from(macaroon: Macaroon) -> Result<Self, Self::Err> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
-            i: Some(macaroon.identifier.clone()),
+            i: Some(macaroon.get_identifier().clone()),
             i64: None,
-            l: macaroon.location.clone(),
+            l: macaroon.get_location().clone(),
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(macaroon.signature.to_base64(STANDARD)),
+            s64: Some(macaroon.get_signature().to_base64(STANDARD)),
         };
-        for caveat in macaroon.caveats {
+        for caveat in macaroon.get_caveats() {
             let serialized_caveat: CaveatV2J = CaveatV2J {
                 i: Some(String::from(caveat.get_serialized_id()?)),
                 i64: None,
@@ -70,8 +70,8 @@ impl TryFrom<V2JSerialization> for Macaroon {
             return Err(MacaroonError::DeserializationError(String::from("Found s and s64 fields")));
         }
 
-        let mut macaroon: Macaroon = Default::default();
-        macaroon.identifier = match ser.i {
+        let mut builder: MacaroonBuilder = MacaroonBuilder::new();
+        builder.set_identifier(&match ser.i {
             Some(id) => id,
             None => {
                 match ser.i64 {
@@ -82,19 +82,19 @@ impl TryFrom<V2JSerialization> for Macaroon {
                     }
                 }
             }
-        };
+        });
 
-        macaroon.location = match ser.l {
-            Some(loc) => Some(loc),
+        match ser.l {
+            Some(loc) => builder.set_location(&loc),
             None => {
                 match ser.l64 {
-                    Some(loc) => Some(String::from_utf8(loc.from_base64()?)?),
-                    None => None,
+                    Some(loc) => builder.set_location(&String::from_utf8(loc.from_base64()?)?),
+                    None => (),
                 }
             }
         };
 
-        macaroon.signature.clone_from_slice(&match ser.s {
+        builder.set_signature(&match ser.s {
             Some(sig) => sig,
             None => {
                 match ser.s64 {
@@ -107,9 +107,9 @@ impl TryFrom<V2JSerialization> for Macaroon {
             }
         });
 
-        let mut builder: CaveatBuilder = CaveatBuilder::new();
+        let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
-            builder.add_id(match c.i {
+            caveat_builder.add_id(match c.i {
                 Some(id) => id,
                 None => {
                     match c.i64 {
@@ -122,30 +122,30 @@ impl TryFrom<V2JSerialization> for Macaroon {
                 }
             });
             match c.l {
-                Some(loc) => builder.add_location(loc),
+                Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     match c.l64 {
                         Some(loc64) => {
-                            builder.add_location(String::from_utf8(loc64.from_base64()?)?)
+                            caveat_builder.add_location(String::from_utf8(loc64.from_base64()?)?)
                         }
                         None => (),
                     }
                 }
             };
             match c.v {
-                Some(vid) => builder.add_verifier_id(vid),
+                Some(vid) => caveat_builder.add_verifier_id(vid),
                 None => {
                     match c.v64 {
-                        Some(vid64) => builder.add_verifier_id(vid64.from_base64()?),
+                        Some(vid64) => caveat_builder.add_verifier_id(vid64.from_base64()?),
                         None => (),
                     }
                 }
             };
-            macaroon.caveats.push(builder.build()?);
-            builder = CaveatBuilder::new();
+            builder.add_caveat(caveat_builder.build()?);
+            caveat_builder = CaveatBuilder::new();
         }
 
-        Ok(macaroon)
+        Ok(builder.build()?)
     }
 }
 
@@ -176,13 +176,14 @@ mod tests {
     fn test_deserialize_v2j() {
         let serialized_v2j: Vec<u8> = SERIALIZED_V2J.as_bytes().to_vec();
         let macaroon = super::deserialize_v2j(&serialized_v2j).unwrap();
-        assert_eq!("http://example.org/", &macaroon.location.unwrap());
-        assert_eq!("keyid", macaroon.identifier);
-        assert_eq!(2, macaroon.caveats.len());
+        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
+        assert_eq!("keyid", macaroon.get_identifier());
+        assert_eq!(2, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.caveats[0].get_predicate().unwrap());
-        assert_eq!("user = alice", macaroon.caveats[1].get_predicate().unwrap());
-        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature);
+                   macaroon.get_caveats()[0].get_predicate().unwrap());
+        assert_eq!("user = alice",
+                   macaroon.get_caveats()[1].get_predicate().unwrap());
+        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
     }
 
     #[test]
