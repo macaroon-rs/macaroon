@@ -129,11 +129,14 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                 if caveat_builder.has_id() {
                     builder.add_caveat(caveat_builder.build()?);
                     caveat_builder = CaveatBuilder::new();
+                    caveat_builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
                 } else {
                     caveat_builder.add_id(String::from(String::from_utf8(packet.value)?.trim()));
                 }
             }
-            VID_V1 => caveat_builder.add_verifier_id(packet.value),
+            VID_V1 => {
+                caveat_builder.add_verifier_id(packet.value);
+            }
             CL_V1 => {
                 caveat_builder.add_location(String::from(String::from_utf8(packet.value)?.trim()))
             }
@@ -147,24 +150,21 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 mod tests {
     use super::super::super::macaroon::Macaroon;
 
-    const SERIALIZED_V1: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
-    const SERIALIZED_V1_WITH_CAVEAT: &'static str = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
-    const SIGNATURE_V1: [u8; 32] = [124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223,
-                                    233, 178, 78, 120, 94, 40, 226, 169, 147, 1, 249, 215, 17,
-                                    198, 9, 227, 142, 247];
-    const SIGNATURE_V1_WITH_CAVEAT: [u8; 32] = [245, 72, 7, 246, 220, 110, 223, 136, 191, 15, 115,
-                                                6, 179, 130, 37, 98, 163, 98, 83, 61, 191, 115,
-                                                57, 186, 97, 118, 93, 164, 189, 37, 157, 135];
-
     #[test]
     fn test_deserialize_v1() {
-        let macaroon = super::deserialize_v1(&SERIALIZED_V1.as_bytes().to_vec()).unwrap();
+        let mut serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
+        let mut signature: [u8; 32] = [124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5,
+                                       223, 233, 178, 78, 120, 94, 40, 226, 169, 147, 1, 249, 215,
+                                       17, 198, 9, 227, 142, 247];
+        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.get_location().is_some());
         assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
         assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(SIGNATURE_V1.to_vec(), macaroon.get_signature());
-        let macaroon = super::deserialize_v1(&SERIALIZED_V1_WITH_CAVEAT.as_bytes().to_vec())
-            .unwrap();
+        assert_eq!(signature.to_vec(), macaroon.get_signature());
+        serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
+        signature = [245, 72, 7, 246, 220, 110, 223, 136, 191, 15, 115, 6, 179, 130, 37, 98, 163,
+                     98, 83, 61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135];
+        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.get_location().is_some());
         assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
         assert_eq!("keyid", macaroon.get_identifier());
@@ -173,12 +173,36 @@ mod tests {
                    macaroon.get_caveats()[0].get_predicate().unwrap());
         assert_eq!(None, macaroon.get_caveats()[0].get_verifier_id());
         assert_eq!(None, macaroon.get_caveats()[0].get_location());
-        assert_eq!(SIGNATURE_V1_WITH_CAVEAT.to_vec(), macaroon.get_signature());
+        assert_eq!(signature.to_vec(), macaroon.get_signature());
+    }
+
+    #[test]
+    fn test_deserialize_v1_two_caveats() {
+        let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
+        let signature = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155,
+                         5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252];
+        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
+        assert!(macaroon.get_location().is_some());
+        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
+        assert_eq!("keyid", macaroon.get_identifier());
+        assert_eq!(signature.to_vec(), macaroon.get_signature());
+        assert_eq!(2, macaroon.get_caveats().len());
+        assert_eq!("account = 3735928559",
+                   macaroon.get_caveats()[0].get_predicate().unwrap());
+        assert_eq!(None, macaroon.get_caveats()[0].get_verifier_id());
+        assert_eq!(None, macaroon.get_caveats()[0].get_location());
+        assert_eq!("user = alice",
+                   macaroon.get_caveats()[1].get_predicate().unwrap());
+        assert_eq!(None, macaroon.get_caveats()[1].get_verifier_id());
+        assert_eq!(None, macaroon.get_caveats()[1].get_location());
     }
 
     #[test]
     fn test_serialize_deserialize_v1() {
-        let macaroon: Macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V1, "keyid")
+        let signature: [u8; 32] = [124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223,
+                                   233, 178, 78, 120, 94, 40, 226, 169, 147, 1, 249, 215, 17, 198,
+                                   9, 227, 142, 247];
+        let macaroon: Macaroon = Macaroon::create("http://example.org/", &signature, "keyid")
             .unwrap();
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
