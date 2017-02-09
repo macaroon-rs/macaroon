@@ -83,6 +83,8 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
+    extern crate time;
+
     use macaroon::Macaroon;
     use super::Verifier;
 
@@ -126,5 +128,59 @@ mod tests {
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let verifier = Verifier::new();
         assert!(!verifier.verify(&macaroon, "this is the key".as_bytes(), &Vec::new()));
+    }
+
+    #[test]
+    fn test_simple_macaroon_two_exact_caveats() {
+        let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
+        let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
+        let mut verifier = Verifier::new();
+        verifier.satisfy_exact("account = 3735928559");
+        verifier.satisfy_exact("user = alice");
+        assert!(verifier.verify(&macaroon, "this is the key".as_bytes(), &Vec::new()));
+    }
+
+    #[test]
+    fn test_simple_macaroon_two_exact_caveats_incomplete_verifier() {
+        let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
+        let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
+        let mut verifier = Verifier::new();
+        verifier.satisfy_exact("account = 3735928559");
+        assert!(!verifier.verify(&macaroon, "this is the key".as_bytes(), &Vec::new()));
+        let mut verifier = Verifier::new();
+        verifier.satisfy_exact("user = alice");
+        assert!(!verifier.verify(&macaroon, "this is the key".as_bytes(), &Vec::new()));
+    }
+
+    fn after_time_verifier(caveat: &str) -> bool {
+        println!("after_time_verifier, caveat = {:?}", caveat);
+        if !caveat.starts_with("time > ") {
+            println!("returning false");
+            return false;
+        }
+
+        match time::strptime(&caveat[7..], "%Y-%m-%dT%H:%M") {
+            Ok(compare) => {
+                println!("{:?}", compare);
+                return time::now() > compare;
+            },
+            Err(error) => {
+                println!("{:?}", error);
+                return false;
+            },
+        }
+    }
+
+    #[test]
+    fn test_simple_macaroon_two_exact_caveats_and_one_general() {
+        let mut macaroon = Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+        macaroon.add_first_party_caveat("account = 3735928559");
+        macaroon.add_first_party_caveat("user = alice");
+        macaroon.add_first_party_caveat("time > 2010-01-01T00:00");
+        let mut verifier = Verifier::new();
+        verifier.satisfy_exact("account = 3735928559");
+        verifier.satisfy_exact("user = alice");
+        verifier.satisfy_general(after_time_verifier);
+        assert!(verifier.verify(&macaroon, "this is the key".as_bytes(), &Vec::new()));
     }
 }
