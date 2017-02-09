@@ -1,5 +1,6 @@
 use crypto;
 use error::MacaroonError;
+use macaroon::Macaroon;
 use verifier::Verifier;
 use std::any::Any;
 use std::fmt::Debug;
@@ -9,7 +10,11 @@ pub trait Caveat: Any + Debug {
     fn get_predicate(&self) -> Option<&str>;
     fn get_verifier_id(&self) -> Option<Vec<u8>>;
     fn get_location(&self) -> Option<&str>;
-    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> bool;
+    fn verify(&self,
+              verifier: &Verifier,
+              discharge_macaroons: &Vec<Macaroon>,
+              id_chain: &mut Vec<String>)
+              -> bool;
     fn get_type(&self) -> &'static str;
     fn as_any(&self) -> &Any;
     fn sign(&self, key: &[u8; 32]) -> [u8; 32];
@@ -81,12 +86,8 @@ impl Caveat for FirstPartyCaveat {
         box self.clone()
     }
 
-    fn verify(&self, _: &[u8; 32], verifier: &Verifier) -> bool {
-        if verifier.verify_predicate(&self.predicate) {
-            return true;
-        }
-
-        false
+    fn verify(&self, verifier: &Verifier, _: &Vec<Macaroon>, _: &mut Vec<String>) -> bool {
+        verifier.verify_predicate(&self.predicate)
     }
 
     fn as_any(&self) -> &Any {
@@ -130,9 +131,12 @@ impl Caveat for ThirdPartyCaveat {
         "ThirdPartyCaveat"
     }
 
-    #[allow(unused_variables)]
-    fn verify(&self, key: &[u8; 32], verifier: &Verifier) -> bool {
-        unimplemented!()
+    fn verify(&self,
+              verifier: &Verifier,
+              discharge_macaroons: &Vec<Macaroon>,
+              id_chain: &mut Vec<String>)
+              -> bool {
+        verifier.verify_caveat(&self.id, discharge_macaroons, id_chain)
     }
 
     fn as_any(&self) -> &Any {

@@ -1,8 +1,9 @@
+use caveat::{self, Caveat};
 use crypto;
 use error::MacaroonError;
 use std::str;
 use serialization;
-use caveat::{self, Caveat};
+use verifier::Verifier;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Macaroon {
@@ -55,9 +56,10 @@ impl Macaroon {
         Ok(self)
     }
 
-    pub fn verify_signature(&self, key: &[u8; 32]) -> bool {
+    pub fn verify_signature(&self, key: &[u8]) -> bool {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
         let mut signature: [u8; 32] = crypto::hmac(&derived_key, self.identifier.as_bytes());
+        // TODO: Do this with a fold?
         for ref caveat in &self.caveats {
             signature = caveat.sign(&signature);
         }
@@ -106,6 +108,20 @@ impl Macaroon {
             signature: signature,
             caveats: discharge.caveats.clone(),
         }
+    }
+
+    pub fn verify_caveats(&self,
+                          verifier: &Verifier,
+                          discharge_macaroons: &Vec<Macaroon>,
+                          id_chain: &mut Vec<String>)
+                          -> bool {
+        if self.caveats
+            .iter()
+            .any(|ref caveat| !caveat.verify(verifier, discharge_macaroons, id_chain)) {
+            return false;
+        }
+
+        true
     }
 
     pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
