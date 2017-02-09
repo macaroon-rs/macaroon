@@ -66,38 +66,22 @@ impl Macaroon {
         signature == self.signature
     }
 
-    pub fn add_first_party_caveat(&self,
-                                  predicate: &'static str)
-                                  -> Result<Macaroon, MacaroonError> {
+    pub fn add_first_party_caveat(&mut self,
+                                  predicate: &'static str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
-        let signature = caveat.sign(&self.signature);
-        let mut macaroon = Macaroon {
-            identifier: self.identifier.clone(),
-            location: self.location.clone(),
-            signature: signature,
-            caveats: self.caveats.clone(),
-        };
-        macaroon.caveats.push(box caveat);
-        Ok(macaroon)
+        self.signature = caveat.sign(&self.signature);
+        self.caveats.push(box caveat);
     }
 
-    pub fn add_third_party_caveat(&self,
+    pub fn add_third_party_caveat(&mut self,
                                   location: &str,
                                   key: &[u8; 32],
-                                  id: &str)
-                                  -> Result<Macaroon, MacaroonError> {
+                                  id: &str) {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
         let vid: Vec<u8> = crypto::encrypt(&self.signature, derived_key);
         let caveat: caveat::ThirdPartyCaveat = caveat::new_third_party(id, vid, location);
-        let signature = caveat.sign(&self.signature);
-        let mut macaroon = Macaroon {
-            identifier: self.identifier.clone(),
-            location: self.location.clone(),
-            signature: signature,
-            caveats: self.caveats.clone(),
-        };
-        macaroon.caveats.push(box caveat);
-        Ok(macaroon)
+        self.signature = caveat.sign(&self.signature);
+        self.caveats.push(box caveat);
     }
 
     pub fn prepare_for_request(&self, discharge: &Macaroon) -> Macaroon {
@@ -227,13 +211,13 @@ mod tests {
         let signature = [132, 133, 51, 243, 147, 201, 178, 7, 193, 179, 36, 128, 4, 228, 17, 84,
                          166, 81, 30, 152, 15, 51, 47, 33, 196, 60, 20, 109, 163, 151, 133, 18];
         let key: &[u8; 32] = b"this is a super duper secret key";
-        let macaroon = Macaroon::create("location", key, "identifier").unwrap();
-        let updated = macaroon.add_first_party_caveat("predicate").unwrap();
-        assert_eq!(1, updated.caveats.len());
-        let ref caveat = updated.caveats[0];
+        let mut macaroon = Macaroon::create("location", key, "identifier").unwrap();
+        macaroon.add_first_party_caveat("predicate");
+        assert_eq!(1, macaroon.caveats.len());
+        let ref caveat = macaroon.caveats[0];
         assert_eq!("predicate", caveat.get_predicate().unwrap());
         assert_eq!(None, caveat.get_verifier_id());
         assert_eq!(None, caveat.get_location());
-        assert_eq!(signature.to_vec(), updated.signature);
+        assert_eq!(signature.to_vec(), macaroon.signature);
     }
 }
