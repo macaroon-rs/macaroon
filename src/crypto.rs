@@ -8,6 +8,12 @@ pub fn generate_derived_key(key: &[u8]) -> [u8; 32] {
     hmac(&KEY_GENERATOR, key)
 }
 
+pub fn generate_signature(key: &[u8], text: &str) -> [u8; 32] {
+    let mut key_bytes: [u8; 32] = [0; 32];
+    key_bytes[..key.len()].clone_from_slice(key);
+    hmac(&key_bytes, text.as_bytes())
+}
+
 pub fn hmac<'r>(key: &'r [u8; 32], text: &'r [u8]) -> [u8; 32] {
     let Tag(result_bytes) = hmacsha256::authenticate(text, &Key(*key));
     result_bytes
@@ -20,7 +26,7 @@ pub fn hmac2<'r>(key: &'r [u8; 32], text1: &'r [u8], text2: &'r [u8]) -> [u8; 32
     hmac(key, &tmp)
 }
 
-pub fn encrypt(plaintext: &[u8], key: [u8; 32]) -> Vec<u8> {
+pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
     let nonce = secretbox::gen_nonce();
     let encrypted = secretbox::seal(plaintext, &nonce, &secretbox::Key(key));
     let mut ret: Vec<u8> = Vec::new();
@@ -29,7 +35,7 @@ pub fn encrypt(plaintext: &[u8], key: [u8; 32]) -> Vec<u8> {
     ret
 }
 
-pub fn decrypt(data: &[u8], key: [u8; 32]) -> Result<Vec<u8>, MacaroonError> {
+pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     if data.len() <= secretbox::NONCEBYTES {
         return Err(MacaroonError::DecryptionError("Encrypted data too short"));
     }
@@ -40,6 +46,20 @@ pub fn decrypt(data: &[u8], key: [u8; 32]) -> Result<Vec<u8>, MacaroonError> {
     let ciphertext = temp.as_slice();
     match secretbox::open(&ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
         Ok(plaintext) => Ok(plaintext),
-        Err(_) => Err(MacaroonError::DecryptionError("Unknown decryption error")),
+        Err(()) => Err(MacaroonError::DecryptionError("Unknown decryption error")),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{encrypt, decrypt};
+
+    #[test]
+    fn test_encrypt_decrypt() {
+        let secret = b"This is my secret";
+        let key = b"This is my secret key\0\0\0\0\0\0\0\0\0\0\0";
+        let encrypted = encrypt(*key, secret);
+        let decrypted = decrypt(*key, encrypted.as_slice()).unwrap();
+        assert_eq!(secret.to_vec(), decrypted);
     }
 }

@@ -2,7 +2,7 @@ use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
-use super::super::caveat::CaveatBuilder;
+use super::super::caveat::{CaveatBuilder, CaveatType};
 use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
@@ -42,15 +42,32 @@ impl TryFrom<Macaroon> for V2JSerialization {
             s64: Some(macaroon.get_signature().to_base64(STANDARD)),
         };
         for caveat in macaroon.get_caveats() {
-            let serialized_caveat: CaveatV2J = CaveatV2J {
-                i: Some(String::from(caveat.get_serialized_id()?)),
-                i64: None,
-                l: caveat.get_location().map(|s| String::from(s)),
-                l64: None,
-                v: caveat.get_verifier_id(),
-                v64: None,
-            };
-            serialized.c.push(serialized_caveat);
+            match caveat.get_type() {
+                CaveatType::FirstParty => {
+                    let first_party = caveat.as_first_party().unwrap();
+                    let serialized_caveat: CaveatV2J = CaveatV2J {
+                        i: Some(String::from(first_party.get_predicate())),
+                        i64: None,
+                        l: None,
+                        l64: None,
+                        v: None,
+                        v64: None,
+                    };
+                    serialized.c.push(serialized_caveat);
+                }
+                CaveatType::ThirdParty => {
+                    let third_party = caveat.as_third_party().unwrap();
+                    let serialized_caveat: CaveatV2J = CaveatV2J {
+                        i: Some(String::from(third_party.get_id())),
+                        i64: None,
+                        l: Some(String::from(third_party.get_location())),
+                        l64: None,
+                        v: Some(third_party.get_verifier_id()),
+                        v64: None,
+                    };
+                    serialized.c.push(serialized_caveat);
+                }
+            }
         }
 
         Ok(serialized)
@@ -180,9 +197,9 @@ mod tests {
         assert_eq!("keyid", macaroon.get_identifier());
         assert_eq!(2, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].get_predicate().unwrap());
+                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].get_predicate().unwrap());
+                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
     }
 

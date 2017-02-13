@@ -1,6 +1,6 @@
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
-use super::super::caveat::CaveatBuilder;
+use super::super::caveat::{CaveatBuilder, CaveatType};
 use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
@@ -51,16 +51,17 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     };
     serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.get_identifier().as_bytes()));
     for caveat in macaroon.get_caveats() {
-        serialized.extend(serialize_as_packet(CID_V1, caveat.get_serialized_id()?.as_bytes()));
-        match caveat.get_verifier_id() {
-            Some(ref verifier_id) => serialized.extend(serialize_as_packet(VID_V1, &verifier_id)),
-            None => (),
-        }
-        match caveat.get_location() {
-            Some(ref location) => {
-                serialized.extend(serialize_as_packet(CL_V1, location.as_bytes()))
+        match caveat.get_type() {
+            CaveatType::FirstParty => {
+                let first_party = caveat.as_first_party().unwrap();
+                serialized.extend(serialize_as_packet(CID_V1, first_party.get_predicate().as_bytes()));
             }
-            None => (),
+            CaveatType::ThirdParty => {
+                let third_party = caveat.as_third_party().unwrap();
+                serialized.extend(serialize_as_packet(CID_V1, third_party.get_id().as_bytes()));
+                serialized.extend(serialize_as_packet(VID_V1, third_party.get_verifier_id().as_slice()));
+                serialized.extend(serialize_as_packet(CL_V1, third_party.get_location().as_bytes()))
+            }
         }
     }
     serialized.extend(serialize_as_packet(SIGNATURE_V1, macaroon.get_signature()));
@@ -170,9 +171,7 @@ mod tests {
         assert_eq!("keyid", macaroon.get_identifier());
         assert_eq!(1, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].get_predicate().unwrap());
-        assert_eq!(None, macaroon.get_caveats()[0].get_verifier_id());
-        assert_eq!(None, macaroon.get_caveats()[0].get_location());
+                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
         assert_eq!(signature.to_vec(), macaroon.get_signature());
     }
 
@@ -188,13 +187,9 @@ mod tests {
         assert_eq!(signature.to_vec(), macaroon.get_signature());
         assert_eq!(2, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].get_predicate().unwrap());
-        assert_eq!(None, macaroon.get_caveats()[0].get_verifier_id());
-        assert_eq!(None, macaroon.get_caveats()[0].get_location());
+                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].get_predicate().unwrap());
-        assert_eq!(None, macaroon.get_caveats()[1].get_verifier_id());
-        assert_eq!(None, macaroon.get_caveats()[1].get_location());
+                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
     }
 
     #[test]

@@ -11,6 +11,7 @@ pub struct Macaroon {
     location: Option<String>,
     signature: [u8; 32],
     caveats: Vec<Box<Caveat>>,
+    is_discharge: bool,
 }
 
 impl Macaroon {
@@ -18,13 +19,14 @@ impl Macaroon {
                   key: &[u8],
                   identifier: &'static str)
                   -> Result<Macaroon, MacaroonError> {
-        let derived_key = crypto::generate_derived_key(&key);
+        let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
             location: Some(String::from(location)),
             identifier: String::from(identifier),
-            signature: crypto::hmac(&derived_key, identifier.as_bytes()),
+            signature: crypto::generate_signature(&macaroon_key, identifier),
             caveats: Vec::new(),
+            is_discharge: false,
         };
         macaroon.validate()
     }
@@ -37,7 +39,7 @@ impl Macaroon {
         self.location.clone()
     }
 
-    pub fn get_signature(&self) -> &[u8] {
+    pub fn get_signature(&self) -> &[u8; 32] {
         &self.signature
     }
 
@@ -56,56 +58,62 @@ impl Macaroon {
         Ok(self)
     }
 
-    pub fn verify_signature(&self, key: &[u8]) -> bool {
-        let derived_key: [u8; 32] = crypto::generate_derived_key(key);
-        let mut signature: [u8; 32] = crypto::hmac(&derived_key, self.identifier.as_bytes());
+    pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
+        let mut signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
         // TODO: Do this with a fold?
         for ref caveat in &self.caveats {
             signature = caveat.sign(&signature);
         }
+        signature
+    }
+
+    pub fn verify_signature(&self, key: &[u8]) -> bool {
+        let signature = self.generate_signature(key);
         signature == self.signature
     }
 
-    pub fn add_first_party_caveat(&mut self,
-                                  predicate: &'static str) {
+    pub fn add_first_party_caveat(&mut self, predicate: &'static str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
     }
 
-    pub fn add_third_party_caveat(&mut self,
-                                  location: &str,
-                                  key: &[u8; 32],
-                                  id: &str) {
+    pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8], id: &str) {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
-        let vid: Vec<u8> = crypto::encrypt(&self.signature, derived_key);
+        let vid: Vec<u8> = crypto::encrypt(self.signature, &derived_key);
         let caveat: caveat::ThirdPartyCaveat = caveat::new_third_party(id, vid, location);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
     }
 
-    pub fn prepare_for_request(&self, discharge: &Macaroon) -> Macaroon {
-        let signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
-        Macaroon {
-            location: discharge.location.clone(),
-            identifier: discharge.identifier.clone(),
-            signature: signature,
-            caveats: discharge.caveats.clone(),
-        }
+    pub fn prepare_for_request(&self, discharge: &mut Macaroon) {
+        discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
+        discharge.is_discharge = true;
     }
 
     pub fn verify_caveats(&self,
                           verifier: &Verifier,
+                          signature: &mut [u8; 32],
                           discharge_macaroons: &Vec<Macaroon>,
                           id_chain: &mut Vec<String>)
-                          -> bool {
-        if self.caveats
-            .iter()
-            .any(|ref caveat| !caveat.verify(verifier, discharge_macaroons, id_chain)) {
-            return false;
+                          -> Result<bool, MacaroonError> {
+        for caveat in &self.caveats {
+            match caveat.verify(self, verifier, signature, discharge_macaroons, id_chain) {
+                Ok(true) => (),
+                Ok(false) => return Ok(false),
+                Err(error) => return Err(error),
+            }
         }
 
-        true
+        Ok(true)
+    }
+
+    pub fn verify_discharge_signature(&self,
+                                      root_macaroon: &Macaroon,
+                                      signature: &[u8; 32])
+                                      -> bool {
+        let discharge_signature = crypto::hmac2(&[0; 32], &root_macaroon.signature, signature);
+        self.signature == discharge_signature
     }
 
     pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
@@ -175,6 +183,7 @@ impl MacaroonBuilder {
             location: self.location.clone(),
             signature: self.signature,
             caveats: self.caveats.clone(),
+            is_discharge: false,
         })
     }
 }
@@ -215,9 +224,8 @@ mod tests {
         macaroon.add_first_party_caveat("predicate");
         assert_eq!(1, macaroon.caveats.len());
         let ref caveat = macaroon.caveats[0];
-        assert_eq!("predicate", caveat.get_predicate().unwrap());
-        assert_eq!(None, caveat.get_verifier_id());
-        assert_eq!(None, caveat.get_location());
+        assert_eq!("predicate",
+                   caveat.as_first_party().unwrap().get_predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
     }
 }

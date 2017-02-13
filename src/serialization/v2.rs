@@ -1,4 +1,4 @@
-use super::super::caveat::CaveatBuilder;
+use super::super::caveat::{CaveatBuilder, CaveatType};
 use super::super::macaroon::{Macaroon, MacaroonBuilder};
 use super::super::error::MacaroonError;
 
@@ -43,23 +43,29 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
                        &mut buffer);
     buffer.push(EOS_V2);
     for caveat in macaroon.get_caveats() {
-        match caveat.get_location() {
-            Some(ref location) => {
-                serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
+        match caveat.get_type() {
+            CaveatType::FirstParty => {
+                let first_party = caveat.as_first_party().unwrap();
+                serialize_field_v2(IDENTIFIER_V2,
+                                   &first_party.get_predicate().as_bytes().to_vec(),
+                                   &mut buffer);
+                buffer.push(EOS_V2);
             }
-            None => (),
+            CaveatType::ThirdParty => {
+                let third_party = caveat.as_third_party().unwrap();
+                serialize_field_v2(LOCATION_V2,
+                                   third_party.get_location().as_bytes(),
+                                   &mut buffer);
+                serialize_field_v2(IDENTIFIER_V2, third_party.get_id().as_bytes(), &mut buffer);
+                serialize_field_v2(VID_V2,
+                                   third_party.get_verifier_id().as_slice(),
+                                   &mut buffer);
+                buffer.push(EOS_V2);
+            }
         }
-        serialize_field_v2(IDENTIFIER_V2,
-                           &caveat.get_serialized_id()?.as_bytes().to_vec(),
-                           &mut buffer);
-        match caveat.get_verifier_id() {
-            Some(ref id) => serialize_field_v2(VID_V2, &id, &mut buffer),
-            None => (),
-        }
-        buffer.push(EOS_V2);
     }
     buffer.push(EOS_V2);
-    serialize_field_v2(SIGNATURE_V2, &macaroon.get_signature(), &mut buffer);
+    serialize_field_v2(SIGNATURE_V2, macaroon.get_signature(), &mut buffer);
     Ok(buffer)
 }
 
@@ -234,9 +240,9 @@ mod tests {
         assert_eq!("keyid", macaroon.get_identifier());
         assert_eq!(2, macaroon.get_caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].get_predicate().unwrap());
+                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].get_predicate().unwrap());
+                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
     }
 

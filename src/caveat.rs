@@ -5,34 +5,29 @@ use verifier::Verifier;
 use std::any::Any;
 use std::fmt::Debug;
 
+#[derive(PartialEq)]
+pub enum CaveatType {
+    FirstParty,
+    ThirdParty,
+}
+
 pub trait Caveat: Any + Debug {
-    fn get_id(&self) -> Option<&str>;
-    fn get_predicate(&self) -> Option<&str>;
-    fn get_verifier_id(&self) -> Option<Vec<u8>>;
-    fn get_location(&self) -> Option<&str>;
     fn verify(&self,
+              macaroon: &Macaroon,
               verifier: &Verifier,
+              signature: &mut [u8; 32],
               discharge_macaroons: &Vec<Macaroon>,
               id_chain: &mut Vec<String>)
-              -> bool;
-    fn get_type(&self) -> &'static str;
-    fn as_any(&self) -> &Any;
+              -> Result<bool, MacaroonError>;
+
     fn sign(&self, key: &[u8; 32]) -> [u8; 32];
+    fn get_type(&self) -> CaveatType;
+    fn as_any(&self) -> &Any;
+    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()>;
+    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()>;
 
     // Required for Clone below
     fn clone_box(&self) -> Box<Caveat>;
-
-    fn get_serialized_id(&self) -> Result<&str, MacaroonError> {
-        match self.get_id() {
-            Some(id) => Ok(id),
-            None => {
-                match self.get_predicate() {
-                    Some(predicate) => Ok(predicate),
-                    None => Err(MacaroonError::BadMacaroon("No id found")),
-                }
-            }
-        }
-    }
 }
 
 impl Clone for Box<Caveat> {
@@ -43,108 +38,135 @@ impl Clone for Box<Caveat> {
 
 impl PartialEq for Caveat {
     fn eq(&self, other: &Caveat) -> bool {
-        let me = self.as_any();
-        let you = other.as_any();
-        if me.is::<FirstPartyCaveat>() && you.is::<FirstPartyCaveat>() {
-            self.get_predicate() == other.get_predicate()
-        } else if me.is::<ThirdPartyCaveat>() && you.is::<ThirdPartyCaveat>() {
-            self.get_id() == other.get_id() && self.get_location() == other.get_location() &&
-            self.get_verifier_id() == other.get_verifier_id()
-        } else {
-            false
+        if self.get_type() != other.get_type() {
+            return false;
+        }
+
+        match self.get_type() {
+            CaveatType::FirstParty => {
+                let me = self.as_first_party();
+                let you = other.as_first_party();
+                return me == you;
+            }
+            CaveatType::ThirdParty => {
+                let me = self.as_third_party();
+                let you = other.as_third_party();
+                return me == you;
+            }
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FirstPartyCaveat {
     pub predicate: String,
 }
 
+impl FirstPartyCaveat {
+    pub fn new(predicate: &str) -> FirstPartyCaveat {
+        FirstPartyCaveat { predicate: String::from(predicate) }
+    }
+
+    pub fn get_predicate(&self) -> String {
+        self.predicate.clone()
+    }
+}
+
 impl Caveat for FirstPartyCaveat {
-    fn get_id(&self) -> Option<&str> {
-        None
+    fn verify(&self,
+              _: &Macaroon,
+              verifier: &Verifier,
+              signature: &mut [u8; 32],
+              _: &Vec<Macaroon>,
+              _: &mut Vec<String>)
+              -> Result<bool, MacaroonError> {
+        let result = Ok(verifier.verify_predicate(&self.predicate));
+        *signature = self.sign(signature);
+        result
     }
 
-    fn get_predicate(&self) -> Option<&str> {
-        Some(&self.predicate)
+    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
+        crypto::hmac(key, self.predicate.as_bytes())
     }
 
-    fn get_verifier_id(&self) -> Option<Vec<u8>> {
-        None
+    fn get_type(&self) -> CaveatType {
+        CaveatType::FirstParty
     }
 
-    fn get_location(&self) -> Option<&str> {
-        None
+    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()> {
+        Ok(self)
     }
 
-    fn get_type(&self) -> &'static str {
-        "FirstPartyCaveat"
-    }
-
-    fn clone_box(&self) -> Box<Caveat> {
-        box self.clone()
-    }
-
-    fn verify(&self, verifier: &Verifier, _: &Vec<Macaroon>, _: &mut Vec<String>) -> bool {
-        verifier.verify_predicate(&self.predicate)
+    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()> {
+        Err(())
     }
 
     fn as_any(&self) -> &Any {
         self
     }
 
-    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
-        crypto::hmac(key, self.predicate.as_bytes())
+    fn clone_box(&self) -> Box<Caveat> {
+        box self.clone()
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ThirdPartyCaveat {
     pub id: String,
     pub verifier_id: Vec<u8>,
     pub location: String,
 }
 
+impl ThirdPartyCaveat {
+    pub fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    pub fn get_verifier_id(&self) -> Vec<u8> {
+        self.verifier_id.clone()
+    }
+
+    pub fn get_location(&self) -> String {
+        self.location.clone()
+    }
+}
+
 impl Caveat for ThirdPartyCaveat {
-    fn get_id(&self) -> Option<&str> {
-        Some(&self.id)
-    }
-
-    fn get_predicate(&self) -> Option<&str> {
-        None
-    }
-
-    fn get_verifier_id(&self) -> Option<Vec<u8>> {
-        Some(self.verifier_id.clone())
-    }
-
-    fn get_location(&self) -> Option<&str> {
-        Some(&self.location)
-    }
-
-    fn clone_box(&self) -> Box<Caveat> {
-        box self.clone()
-    }
-
-    fn get_type(&self) -> &'static str {
-        "ThirdPartyCaveat"
-    }
-
     fn verify(&self,
+              macaroon: &Macaroon,
               verifier: &Verifier,
+              signature: &mut [u8; 32],
               discharge_macaroons: &Vec<Macaroon>,
               id_chain: &mut Vec<String>)
-              -> bool {
-        verifier.verify_caveat(&self.id, discharge_macaroons, id_chain)
+              -> Result<bool, MacaroonError> {
+        let result =
+            verifier.verify_caveat(&self, macaroon, signature, discharge_macaroons, id_chain);
+        *signature = self.sign(&signature);
+        result
+    }
+
+    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
+        crypto::hmac2(key, &self.verifier_id, self.id.as_bytes())
+    }
+
+    fn get_type(&self) -> CaveatType {
+        CaveatType::ThirdParty
+    }
+
+    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()> {
+        Err(())
+    }
+
+    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()> {
+        Ok(self)
     }
 
     fn as_any(&self) -> &Any {
         self
     }
 
-    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
-        crypto::hmac2(key, &self.verifier_id, self.id.as_bytes())
+    fn clone_box(&self) -> Box<Caveat> {
+        box self.clone()
     }
 }
 
