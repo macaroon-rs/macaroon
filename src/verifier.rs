@@ -40,24 +40,6 @@ impl Verifier {
         false
     }
 
-    pub fn verify_discharge_macaroon(&self,
-                                     macaroon: &Macaroon,
-                                     signature: &mut [u8; 32],
-                                     discharge_macaroons: &Vec<Macaroon>,
-                                     id_chain: &mut Vec<String>)
-                                     -> Result<bool, MacaroonError> {
-        match discharge_macaroons.iter().find(|&dm| macaroon == dm) {
-            Some(dm) => {
-                if id_chain.iter().any(|id| id == macaroon.get_identifier()) {
-                    return Ok(false);
-                }
-                id_chain.push(macaroon.get_identifier().clone());
-                dm.verify_caveats(self, signature, discharge_macaroons, id_chain)
-            }
-            None => Ok(false),
-        }
-    }
-
     pub fn verify(&self,
                   macaroon: &Macaroon,
                   key: &[u8],
