@@ -2,7 +2,6 @@ use crypto;
 use error::MacaroonError;
 use macaroon::Macaroon;
 use verifier::Verifier;
-use std::any::Any;
 use std::fmt::Debug;
 
 #[derive(PartialEq)]
@@ -11,7 +10,7 @@ pub enum CaveatType {
     ThirdParty,
 }
 
-pub trait Caveat: Any + Debug {
+pub trait Caveat: Debug {
     fn verify(&self,
               macaroon: &Macaroon,
               verifier: &Verifier,
@@ -22,7 +21,6 @@ pub trait Caveat: Any + Debug {
 
     fn sign(&self, key: &[u8; 32]) -> [u8; 32];
     fn get_type(&self) -> CaveatType;
-    fn as_any(&self) -> &Any;
     fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()>;
     fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()>;
 
@@ -59,7 +57,7 @@ impl PartialEq for Caveat {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FirstPartyCaveat {
-    pub predicate: String,
+    predicate: String,
 }
 
 impl FirstPartyCaveat {
@@ -101,10 +99,6 @@ impl Caveat for FirstPartyCaveat {
         Err(())
     }
 
-    fn as_any(&self) -> &Any {
-        self
-    }
-
     fn clone_box(&self) -> Box<Caveat> {
         box self.clone()
     }
@@ -112,9 +106,9 @@ impl Caveat for FirstPartyCaveat {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ThirdPartyCaveat {
-    pub id: String,
-    pub verifier_id: Vec<u8>,
-    pub location: String,
+    id: String,
+    verifier_id: Vec<u8>,
+    location: String,
 }
 
 impl ThirdPartyCaveat {
@@ -159,10 +153,6 @@ impl Caveat for ThirdPartyCaveat {
 
     fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()> {
         Ok(self)
-    }
-
-    fn as_any(&self) -> &Any {
-        self
     }
 
     fn clone_box(&self) -> Box<Caveat> {
