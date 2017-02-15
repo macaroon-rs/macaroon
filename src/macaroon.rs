@@ -86,7 +86,7 @@ impl Macaroon {
         self.caveats.push(box caveat);
     }
 
-    pub fn prepare_for_request(&self, discharge: &mut Macaroon) {
+    pub fn bind(&self, discharge: &mut Macaroon) {
         discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
         discharge.is_discharge = true;
     }

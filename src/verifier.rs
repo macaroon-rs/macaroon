@@ -236,7 +236,7 @@ mod tests {
                                              "other keyid")
             .unwrap();
         discharge.add_first_party_caveat("time > 2010-01-01T00:00");
-        macaroon.prepare_for_request(&mut discharge);
+        macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
         verifier.satisfy_general(after_time_verifier);
         verifier.add_discharge_macaroons(&vec![discharge]);

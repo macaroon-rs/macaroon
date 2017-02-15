@@ -38,7 +38,7 @@
 //! discharge.add_first_party_caveat("account = 12345678");
 //!
 //! // Once we receive the discharge macaroons, we bind them to the original macaroon
-//! macaroon.prepare_for_request(&mut discharge);
+//! macaroon.bind(&mut discharge);
 //!
 //! // Then we can verify using the same verifier (which will verify both the existing
 //! // first-party caveat and the third party one)
