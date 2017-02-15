@@ -95,6 +95,7 @@ impl Macaroon {
         if !self.verify_signature(key) {
             return Ok(false);
         }
+        verifier.reset();
         verifier.set_signature(crypto::generate_signature(key, &self.identifier));
         self.verify_caveats(verifier)
     }

@@ -24,6 +24,11 @@ impl Verifier {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.signature = [0; 32];
+        self.id_chain.clear();
+    }
+
     pub fn satisfy_exact(&mut self, predicate: &str) {
         self.predicates.push(String::from(predicate));
     }
