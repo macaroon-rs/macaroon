@@ -11,7 +11,6 @@ pub struct Macaroon {
     location: Option<String>,
     signature: [u8; 32],
     caveats: Vec<Box<Caveat>>,
-    is_discharge: bool,
 }
 
 impl Macaroon {
@@ -26,7 +25,6 @@ impl Macaroon {
             identifier: String::from(identifier),
             signature: crypto::generate_signature(&macaroon_key, identifier),
             caveats: Vec::new(),
-            is_discharge: false,
         };
         macaroon.validate()
     }
@@ -88,7 +86,6 @@ impl Macaroon {
 
     pub fn bind(&self, discharge: &mut Macaroon) {
         discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
-        discharge.is_discharge = true;
     }
 
     pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
@@ -199,7 +196,6 @@ impl MacaroonBuilder {
             location: self.location.clone(),
             signature: self.signature,
             caveats: self.caveats.clone(),
-            is_discharge: false,
         })
     }
 }
