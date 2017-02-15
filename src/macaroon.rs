@@ -91,14 +91,17 @@ impl Macaroon {
         discharge.is_discharge = true;
     }
 
-    pub fn verify_caveats(&self,
-                          verifier: &Verifier,
-                          signature: &mut [u8; 32],
-                          discharge_macaroons: &Vec<Macaroon>,
-                          id_chain: &mut Vec<String>)
-                          -> Result<bool, MacaroonError> {
+    pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
+        if !self.verify_signature(key) {
+            return Ok(false);
+        }
+        verifier.set_signature(crypto::generate_signature(key, &self.identifier));
+        self.verify_caveats(verifier)
+    }
+
+    pub fn verify_caveats(&self, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         for caveat in &self.caveats {
-            match caveat.verify(self, verifier, signature, discharge_macaroons, id_chain) {
+            match caveat.verify(self, verifier) {
                 Ok(true) => (),
                 Ok(false) => return Ok(false),
                 Err(error) => return Err(error),
@@ -106,6 +109,18 @@ impl Macaroon {
         }
 
         Ok(true)
+    }
+
+    pub fn verify_as_discharge(&self,
+                               verifier: &mut Verifier,
+                               root_macaroon: &Macaroon,
+                               key: &[u8])
+                               -> Result<bool, MacaroonError> {
+        let signature = self.generate_signature(key);
+        if !self.verify_discharge_signature(root_macaroon, &signature) {
+            return Ok(false);
+        }
+        self.verify_caveats(verifier)
     }
 
     pub fn verify_discharge_signature(&self,

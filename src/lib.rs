@@ -20,7 +20,7 @@
 //! // Now we verify the caveat
 //! let mut verifier = Verifier::new();
 //! verifier.satisfy_exact("account = 12345678");
-//! match verifier.verify(&macaroon, b"key", &vec![]) {
+//! match macaroon.verify(b"key", &mut verifier) {
 //!     Ok(true) => println!("Macaroon verified!"),
 //!     Ok(false) => println!("Macaroon verification failed"),
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
@@ -42,7 +42,8 @@
 //!
 //! // Then we can verify using the same verifier (which will verify both the existing
 //! // first-party caveat and the third party one)
-//! match verifier.verify(&macaroon, b"key", &vec![discharge]) {
+//! verifier.add_discharge_macaroons(&vec![discharge]);
+//! match macaroon.verify(b"key", &mut verifier) {
 //!     Ok(true) => println!("Macaroon verified!"),
 //!     Ok(false) => println!("Macaroon verification failed"),
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),

@@ -11,13 +11,7 @@ pub enum CaveatType {
 }
 
 pub trait Caveat: Debug {
-    fn verify(&self,
-              macaroon: &Macaroon,
-              verifier: &Verifier,
-              signature: &mut [u8; 32],
-              discharge_macaroons: &Vec<Macaroon>,
-              id_chain: &mut Vec<String>)
-              -> Result<bool, MacaroonError>;
+    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError>;
 
     fn sign(&self, key: &[u8; 32]) -> [u8; 32];
     fn get_type(&self) -> CaveatType;
@@ -71,15 +65,9 @@ impl FirstPartyCaveat {
 }
 
 impl Caveat for FirstPartyCaveat {
-    fn verify(&self,
-              _: &Macaroon,
-              verifier: &Verifier,
-              signature: &mut [u8; 32],
-              _: &Vec<Macaroon>,
-              _: &mut Vec<String>)
-              -> Result<bool, MacaroonError> {
+    fn verify(&self, _: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         let result = Ok(verifier.verify_predicate(&self.predicate));
-        *signature = self.sign(signature);
+        verifier.update_signature(|t| self.sign(t));
         result
     }
 
@@ -126,16 +114,9 @@ impl ThirdPartyCaveat {
 }
 
 impl Caveat for ThirdPartyCaveat {
-    fn verify(&self,
-              macaroon: &Macaroon,
-              verifier: &Verifier,
-              signature: &mut [u8; 32],
-              discharge_macaroons: &Vec<Macaroon>,
-              id_chain: &mut Vec<String>)
-              -> Result<bool, MacaroonError> {
-        let result =
-            verifier.verify_caveat(&self, macaroon, signature, discharge_macaroons, id_chain);
-        *signature = self.sign(&signature);
+    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
+        let result = verifier.verify_caveat(&self, macaroon);
+        verifier.update_signature(|t| self.sign(t));
         result
     }
 
