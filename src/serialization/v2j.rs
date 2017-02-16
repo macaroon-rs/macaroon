@@ -2,9 +2,9 @@ use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
-use super::super::caveat::{CaveatBuilder, CaveatType};
-use super::super::macaroon::{Macaroon, MacaroonBuilder};
-use super::super::error::MacaroonError;
+use caveat::{CaveatBuilder, CaveatType};
+use {Macaroon, MacaroonBuilder};
+use error::MacaroonError;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct CaveatV2J {
@@ -178,7 +178,7 @@ pub fn deserialize_v2j(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::macaroon::Macaroon;
+    use Macaroon;
     use super::super::Format;
 
     const SERIALIZED_V2J: &'static str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\

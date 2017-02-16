@@ -1,8 +1,8 @@
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
-use super::super::caveat::{CaveatBuilder, CaveatType};
-use super::super::macaroon::{Macaroon, MacaroonBuilder};
-use super::super::error::MacaroonError;
+use caveat::{CaveatBuilder, CaveatType};
+use {Macaroon, MacaroonBuilder};
+use error::MacaroonError;
 
 // Version 1 fields
 const LOCATION_V1: &'static str = "location";
@@ -149,7 +149,7 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::macaroon::Macaroon;
+    use Macaroon;
 
     #[test]
     fn test_deserialize_v1() {

@@ -1,7 +1,7 @@
-use caveat;
 use crypto;
 use error::MacaroonError;
-use macaroon::Macaroon;
+use Macaroon;
+use caveat;
 
 pub type VerifierCallback = fn(&str) -> bool;
 
@@ -91,7 +91,7 @@ mod tests {
     extern crate time;
 
     use crypto;
-    use macaroon::Macaroon;
+    use Macaroon;
     use super::Verifier;
 
     #[test]

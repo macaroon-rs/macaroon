@@ -1,6 +1,6 @@
-use super::super::caveat::{CaveatBuilder, CaveatType};
-use super::super::macaroon::{Macaroon, MacaroonBuilder};
-use super::super::error::MacaroonError;
+use caveat::{CaveatBuilder, CaveatType};
+use {Macaroon, MacaroonBuilder};
+use error::MacaroonError;
 
 // Version 2 fields
 const EOS_V2: u8 = 0;
@@ -224,8 +224,8 @@ pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use serialize::base64::FromBase64;
-    use super::super::super::caveat;
-    use super::super::super::macaroon::MacaroonBuilder;
+    use caveat;
+    use MacaroonBuilder;
 
     const SERIALIZED_V2: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
     const SIGNATURE_V2: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,

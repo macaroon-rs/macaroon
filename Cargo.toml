@@ -1,5 +1,5 @@
 [package]
-name = "libmacaroon-rs"
+name = "libmacaroon"
 version = "0.1.0"
 authors = ["Jack Lund <jackl@geekheads.net>"]
 
