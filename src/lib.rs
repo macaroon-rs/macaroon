@@ -156,19 +156,21 @@ impl Macaroon {
         &self.caveats
     }
 
-    pub fn get_first_party_caveats(&self) -> Vec<Box<FirstPartyCaveat>> {
+    /// Retrieve a list of the first-party caveats for the macaroon
+    pub fn get_first_party_caveats(&self) -> Vec<FirstPartyCaveat> {
         self.caveats
             .iter()
             .filter(|c| c.get_type() == CaveatType::FirstParty)
-            .map(|c| box c.as_first_party().unwrap().clone())
+            .map(|c| c.as_first_party().unwrap().clone())
             .collect()
     }
 
-    pub fn get_third_party_caveats(&self) -> Vec<Box<ThirdPartyCaveat>> {
+    /// Retrieve a list of the third-party caveats for the macaroon
+    pub fn get_third_party_caveats(&self) -> Vec<ThirdPartyCaveat> {
         self.caveats
             .iter()
             .filter(|c| c.get_type() == CaveatType::ThirdParty)
-            .map(|c| box c.as_third_party().unwrap().clone())
+            .map(|c| c.as_third_party().unwrap().clone())
             .collect()
     }
 
@@ -291,7 +293,7 @@ impl Macaroon {
         }
     }
 
-    // Deserialize a macaroon
+    /// Deserialize a macaroon
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2j::deserialize_v2j(data)?,
@@ -345,7 +347,7 @@ mod tests {
         assert_eq!("predicate",
                    caveat.as_first_party().unwrap().get_predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
-        assert_eq!(*caveat.as_first_party().unwrap(), *macaroon.get_first_party_caveats()[0]);
+        assert_eq!(*caveat.as_first_party().unwrap(), macaroon.get_first_party_caveats()[0]);
     }
 
     #[test]
@@ -360,6 +362,6 @@ mod tests {
         let caveat = macaroon.caveats[0].as_third_party().unwrap();
         assert_eq!(location, caveat.get_location());
         assert_eq!(id, caveat.get_id());
-        assert_eq!(*caveat.as_third_party().unwrap(), *macaroon.get_third_party_caveats()[0]);
+        assert_eq!(*caveat.as_third_party().unwrap(), macaroon.get_third_party_caveats()[0]);
     }
 }
