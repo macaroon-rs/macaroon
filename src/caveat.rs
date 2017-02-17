@@ -49,16 +49,14 @@ impl PartialEq for Caveat {
     }
 }
 
+/// Struct for a first-party caveat
 #[derive(Clone, Debug, PartialEq)]
 pub struct FirstPartyCaveat {
     predicate: String,
 }
 
 impl FirstPartyCaveat {
-    pub fn new(predicate: &str) -> FirstPartyCaveat {
-        FirstPartyCaveat { predicate: String::from(predicate) }
-    }
-
+    /// Accessor for the predicate
     pub fn get_predicate(&self) -> String {
         self.predicate.clone()
     }
@@ -92,6 +90,7 @@ impl Caveat for FirstPartyCaveat {
     }
 }
 
+/// Struct for a third-party caveat
 #[derive(Clone, Debug, PartialEq)]
 pub struct ThirdPartyCaveat {
     id: String,
@@ -100,14 +99,17 @@ pub struct ThirdPartyCaveat {
 }
 
 impl ThirdPartyCaveat {
+    /// Accessor for the identifier
     pub fn get_id(&self) -> String {
         self.id.clone()
     }
 
+    /// Accessor for the verifier ID
     pub fn get_verifier_id(&self) -> Vec<u8> {
         self.verifier_id.clone()
     }
 
+    /// Accessor for the location
     pub fn get_location(&self) -> String {
         self.location.clone()
     }
