@@ -3,6 +3,29 @@
 //! more narrowly-focused authorization based on contextual caveats. For more information, see
 //! [here](https://raw.githubusercontent.com/rescrv/libmacaroons/master/README).
 //!
+//! # What Are Macaroons?
+//!
+//! Macaroons are bearer tokens (similar to cookies) which encode within them criteria within which the
+//! authorization is allowed to take place (referred to as "caveats"). For instance, authorization could
+//! be restricted to a particular user, account, time of day, really anything. These criteria can be either
+//! evaluated locally (a "first-party caveat"), or using special macaroons ("discharge macaroons") generated
+//! by a third party (a "third-party caveat").
+//!
+//! A first-party caveat consists simply of a predicate which, when evaluated as true, authorizes the caveat.
+//! The predicate is a string which is either evaluated using strict string comparison (`satisfy_exact`),
+//! or interpreted using a provided function (`satisfy_general`).
+//!
+//! A third-party caveat consists of a location string, an identifier, and a specially-generated signing key
+//! to authenticate the generated discharge macaroons. The key and identifier is passed to the third-party
+//! who generates the discharge macaroons. The receiver then binds each discharge macaroon to the original
+//! macaroon.
+//!
+//! During verification of a third-party caveat, a discharge macaroon is found from those received whose identifier
+//! matches that of the caveat. The binding signature is verified, and the discharge macaroon's caveats are verified
+//! using the same process as the original macaroon.
+//!
+//! The macaroon is considered authorized only if all its caveats are authorized by the above process.
+//!
 //! # Example
 //! ```
 //! use libmacaroon::{Macaroon, Verifier};
@@ -94,6 +117,10 @@ pub struct Macaroon {
 }
 
 impl Macaroon {
+    /// Construct a macaroon, given a location and identifier, and a key to sign it with
+    ///
+    /// # Errors
+    /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
     pub fn create(location: &'static str,
                   key: &[u8],
                   identifier: &'static str)
@@ -109,14 +136,17 @@ impl Macaroon {
         macaroon.validate()
     }
 
+    /// Returns the identifier for the macaroon
     pub fn get_identifier(&self) -> &String {
         &self.identifier
     }
 
+    /// Returns the location for the macaroon
     pub fn get_location(&self) -> Option<String> {
         self.location.clone()
     }
 
+    /// Returns the macaroon's signature
     pub fn get_signature(&self) -> &[u8; 32] {
         &self.signature
     }
@@ -125,6 +155,7 @@ impl Macaroon {
         &self.caveats
     }
 
+    /// Validate the macaroon - used mainly for validating deserialized macaroons
     pub fn validate(self) -> Result<Self, MacaroonError> {
         if self.identifier.is_empty() {
             return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
@@ -136,6 +167,7 @@ impl Macaroon {
         Ok(self)
     }
 
+    /// Generate a signature for the given macaroon
     pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
         let mut signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
         // TODO: Do this with a fold?
@@ -145,17 +177,28 @@ impl Macaroon {
         signature
     }
 
+    /// Verify the signature of the macaroon given the key
     pub fn verify_signature(&self, key: &[u8]) -> bool {
         let signature = self.generate_signature(key);
         signature == self.signature
     }
 
+    /// Add a first-party caveat to the macaroon
+    ///
+    /// A first-party caveat is just a string predicate in some
+    /// DSL which can be verified either by exact string match,
+    /// or by using a function to parse the string and validate it
+    /// (see Verifier for more info).
     pub fn add_first_party_caveat(&mut self, predicate: &'static str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
     }
 
+    /// Add a third-party caveat to the macaroon
+    ///
+    /// A third-party caveat is a caveat which must be verified by a third party
+    /// using macaroons provided by them (referred to as "discharge macaroons").
     pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8], id: &str) {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
         let vid: Vec<u8> = crypto::encrypt(self.signature, &derived_key);
@@ -164,10 +207,26 @@ impl Macaroon {
         self.caveats.push(box caveat);
     }
 
+    /// Bind a discharge macaroon to the original macaroon
+    ///
+    /// When a macaroon with third-party caveats must be authorized, you send off to the various
+    /// locations specified in the caveats, sending the caveat ID and key, and receive a set
+    /// of one or more "discharge macaroons" which are used to verify the caveat. In order to ensure
+    /// that the discharge macaroons aren't re-used in some other context, we bind them to the original
+    /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
         discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
     }
 
+    /// Verify a macaroon
+    ///
+    /// Verifies that the bearer of the macaroon is authorized to perform the actions requested.
+    /// Takes the original key used to create the macaroon, and a verifier which must contain
+    /// all criteria used to satisfy the caveats in the macaroon, plus any discharge macaroons
+    /// to satisfy any third-party caveats, which must be already bound to this macaroon.
+    ///
+    /// Returns `Ok(true)` if authorized, `Ok(false)` if not, and `MacaroonError` if there was an error
+    /// verifying the macaroon.
     pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         if !self.verify_signature(key) {
             return Ok(false);
@@ -206,6 +265,7 @@ impl Macaroon {
         self.signature == discharge_signature
     }
 
+    /// Serialize the macaroon using the serialization format provided
     pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
         match format {
             serialization::Format::V1 => serialization::v1::serialize_v1(self),
@@ -214,6 +274,7 @@ impl Macaroon {
         }
     }
 
+    // Deserialize a macaroon
     pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2j::deserialize_v2j(data)?,
