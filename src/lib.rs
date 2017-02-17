@@ -93,10 +93,11 @@ pub mod error;
 mod serialization;
 pub mod verifier;
 
+pub use caveat::{FirstPartyCaveat, ThirdPartyCaveat};
 pub use verifier::Verifier;
 pub use error::MacaroonError;
 
-use caveat::Caveat;
+use caveat::{Caveat, CaveatType};
 
 /// Initializes the cryptographic libraries. Although you can use libmacaroon-rs without
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
@@ -153,6 +154,22 @@ impl Macaroon {
 
     fn get_caveats(&self) -> &Vec<Box<Caveat>> {
         &self.caveats
+    }
+
+    pub fn get_first_party_caveats(&self) -> Vec<Box<FirstPartyCaveat>> {
+        self.caveats
+            .iter()
+            .filter(|c| c.get_type() == CaveatType::FirstParty)
+            .map(|c| box c.as_first_party().unwrap().clone())
+            .collect()
+    }
+
+    pub fn get_third_party_caveats(&self) -> Vec<Box<ThirdPartyCaveat>> {
+        self.caveats
+            .iter()
+            .filter(|c| c.get_type() == CaveatType::ThirdParty)
+            .map(|c| box c.as_third_party().unwrap().clone())
+            .collect()
     }
 
     /// Validate the macaroon - used mainly for validating deserialized macaroons
@@ -292,6 +309,7 @@ impl Macaroon {
 mod tests {
     use super::Macaroon;
     use error::MacaroonError;
+    use caveat::Caveat;
 
     #[test]
     fn create_macaroon() {
@@ -327,5 +345,21 @@ mod tests {
         assert_eq!("predicate",
                    caveat.as_first_party().unwrap().get_predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
+        assert_eq!(*caveat.as_first_party().unwrap(), *macaroon.get_first_party_caveats()[0]);
+    }
+
+    #[test]
+    fn create_macaroon_with_third_party_caveat() {
+        let key: &[u8; 32] = b"this is a super duper secret key";
+        let mut macaroon = Macaroon::create("location", key, "identifier").unwrap();
+        let location = "https://auth.mybank.com";
+        let cav_key = b"My key";
+        let id = "My Caveat";
+        macaroon.add_third_party_caveat(location, cav_key, id);
+        assert_eq!(1, macaroon.caveats.len());
+        let caveat = macaroon.caveats[0].as_third_party().unwrap();
+        assert_eq!(location, caveat.get_location());
+        assert_eq!(id, caveat.get_id());
+        assert_eq!(*caveat.as_third_party().unwrap(), *macaroon.get_third_party_caveats()[0]);
     }
 }
