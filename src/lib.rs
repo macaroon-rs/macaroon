@@ -96,6 +96,7 @@ pub mod verifier;
 pub use caveat::{FirstPartyCaveat, ThirdPartyCaveat};
 pub use verifier::Verifier;
 pub use error::MacaroonError;
+pub use serialization::Format;
 
 use caveat::{Caveat, CaveatType};
 
