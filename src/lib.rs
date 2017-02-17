@@ -188,12 +188,8 @@ impl Macaroon {
 
     /// Generate a signature for the given macaroon
     pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
-        let mut signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
-        // TODO: Do this with a fold?
-        for ref caveat in &self.caveats {
-            signature = caveat.sign(&signature);
-        }
-        signature
+        let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
+        self.caveats.iter().fold(signature, |sig, ref caveat| caveat.sign(&sig))
     }
 
     /// Verify the signature of the macaroon given the key
