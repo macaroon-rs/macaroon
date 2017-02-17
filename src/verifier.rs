@@ -3,8 +3,13 @@ use error::MacaroonError;
 use Macaroon;
 use caveat;
 
+/// Type of callback for `Verifier::satisfy_general()`
 pub type VerifierCallback = fn(&str) -> bool;
 
+/// Verifier struct
+///
+/// Contains all information and maintains all state for the macaroon
+/// verification process
 pub struct Verifier {
     predicates: Vec<String>,
     callbacks: Vec<VerifierCallback>,
@@ -14,6 +19,7 @@ pub struct Verifier {
 }
 
 impl Verifier {
+    /// Create a new Verifier
     pub fn new() -> Verifier {
         Verifier {
             predicates: Vec::new(),
@@ -29,14 +35,17 @@ impl Verifier {
         self.id_chain.clear();
     }
 
+    /// Predicate to satisfy a caveat by exact string match
     pub fn satisfy_exact(&mut self, predicate: &str) {
         self.predicates.push(String::from(predicate));
     }
 
+    /// Provides a callback function used to verify a caveat
     pub fn satisfy_general(&mut self, callback: VerifierCallback) {
         self.callbacks.push(callback);
     }
 
+    /// Adds discharge macaroons to the verifier
     pub fn add_discharge_macaroons(&mut self, discharge_macaroons: &Vec<Macaroon>) {
         self.discharge_macaroons.extend(discharge_macaroons.clone());
     }

@@ -1,8 +1,9 @@
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
-use {Macaroon, MacaroonBuilder};
+use Macaroon;
 use error::MacaroonError;
+use serialization::macaroon_builder::MacaroonBuilder;
 
 // Version 1 fields
 const LOCATION_V1: &'static str = "location";

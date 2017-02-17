@@ -3,8 +3,9 @@ use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::convert::TryFrom;
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
-use {Macaroon, MacaroonBuilder};
+use Macaroon;
 use error::MacaroonError;
+use serialization::macaroon_builder::MacaroonBuilder;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct CaveatV2J {
