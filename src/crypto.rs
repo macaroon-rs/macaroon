@@ -37,6 +37,7 @@ pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
 
 pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     if data.len() <= secretbox::NONCEBYTES {
+        error!("crypto::decrypt: Encrypted data {:?} too short", data);
         return Err(MacaroonError::DecryptionError("Encrypted data too short"));
     }
     let mut nonce: [u8; secretbox::NONCEBYTES] = [0; secretbox::NONCEBYTES];
@@ -46,7 +47,10 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     let ciphertext = temp.as_slice();
     match secretbox::open(&ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
         Ok(plaintext) => Ok(plaintext),
-        Err(()) => Err(MacaroonError::DecryptionError("Unknown decryption error")),
+        Err(()) => {
+            error!("crypto::decrypt: Unknown decryption error decrypting {:?}", data);
+            Err(MacaroonError::DecryptionError("Unknown decryption error"))
+        }
     }
 }
 

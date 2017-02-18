@@ -121,6 +121,8 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
                     caveat_builder = CaveatBuilder::new();
                 }
                 if packet.value.len() != 33 {
+                    error!("deserialize_v1: Deserialization error - signature length is {}",
+                           packet.value.len());
                     return Err(MacaroonError::DeserializationError(String::from("Illegal signature \
                                                                                  length in \
                                                                                  packet")));

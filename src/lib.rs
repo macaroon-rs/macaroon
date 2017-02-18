@@ -80,6 +80,8 @@
 #![feature(try_from)]
 #![feature(box_syntax, box_patterns)]
 
+#[macro_use]
+extern crate log;
 extern crate rustc_serialize as serialize;
 extern crate sodiumoxide;
 extern crate serde;
@@ -124,9 +126,9 @@ impl Macaroon {
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
     pub fn create<'r>(location: &'r str,
-                  key: &[u8],
-                  identifier: &'r str)
-                  -> Result<Macaroon, MacaroonError> {
+                      key: &[u8],
+                      identifier: &'r str)
+                      -> Result<Macaroon, MacaroonError> {
         let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
@@ -135,6 +137,7 @@ impl Macaroon {
             signature: crypto::generate_signature(&macaroon_key, identifier),
             caveats: Vec::new(),
         };
+        debug!("Macaroon::create: {:?}", macaroon);
         macaroon.validate()
     }
 
@@ -209,6 +212,7 @@ impl Macaroon {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
+        debug!("Macaroon::add_first_party_caveat: {:?}", self);
     }
 
     /// Add a third-party caveat to the macaroon
@@ -221,6 +225,7 @@ impl Macaroon {
         let caveat: caveat::ThirdPartyCaveat = caveat::new_third_party(id, vid, location);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
+        debug!("Macaroon::add_third_party_caveat: {:?}", self);
     }
 
     /// Bind a discharge macaroon to the original macaroon
@@ -232,6 +237,9 @@ impl Macaroon {
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
         discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
+        debug!("Macaroon::bind: original: {:?}, discharge: {:?}",
+               self,
+               discharge);
     }
 
     /// Verify a macaroon
@@ -245,6 +253,8 @@ impl Macaroon {
     /// verifying the macaroon.
     pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         if !self.verify_signature(key) {
+            info!("Macaroon::verify: Macaroon {:?} failed signature verification",
+                  self);
             return Ok(false);
         }
         verifier.reset();
@@ -271,6 +281,9 @@ impl Macaroon {
                            -> Result<bool, MacaroonError> {
         let signature = self.generate_signature(key);
         if !self.verify_discharge_signature(root_macaroon, &signature) {
+            info!("Macaroon::verify_as_discharge: Signature of discharge macaroon {:?} failed \
+                   verification",
+                  self);
             return Ok(false);
         }
         self.verify_caveats(verifier)
@@ -278,6 +291,10 @@ impl Macaroon {
 
     fn verify_discharge_signature(&self, root_macaroon: &Macaroon, signature: &[u8; 32]) -> bool {
         let discharge_signature = crypto::hmac2(&[0; 32], &root_macaroon.signature, signature);
+        debug!("Macaroon::verify_discharge_signature: self.signature = {:?}, discharge signature \
+                = {:?}",
+               self.signature,
+               discharge_signature);
         self.signature == discharge_signature
     }
 
@@ -341,10 +358,10 @@ mod tests {
         macaroon.add_first_party_caveat("predicate");
         assert_eq!(1, macaroon.caveats.len());
         let ref caveat = macaroon.caveats[0];
-        assert_eq!("predicate",
-                   caveat.as_first_party().unwrap().predicate());
+        assert_eq!("predicate", caveat.as_first_party().unwrap().predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
-        assert_eq!(*caveat.as_first_party().unwrap(), macaroon.first_party_caveats()[0]);
+        assert_eq!(*caveat.as_first_party().unwrap(),
+                   macaroon.first_party_caveats()[0]);
     }
 
     #[test]
@@ -359,6 +376,7 @@ mod tests {
         let caveat = macaroon.caveats[0].as_third_party().unwrap();
         assert_eq!(location, caveat.location());
         assert_eq!(id, caveat.id());
-        assert_eq!(*caveat.as_third_party().unwrap(), macaroon.third_party_caveats()[0]);
+        assert_eq!(*caveat.as_third_party().unwrap(),
+                   macaroon.third_party_caveats()[0]);
     }
 }

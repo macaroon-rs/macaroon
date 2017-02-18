@@ -83,14 +83,22 @@ impl Verifier {
         match dm_opt {
             Some(dm) => {
                 if self.id_chain.iter().any(|id| id == dm.identifier()) {
-                    // TODO: Log id chain
+                    info!("Verifier::verify_caveat: caveat verification loop - id {:?} found in \
+                           id chain {:?}",
+                          dm.identifier(),
+                          self.id_chain);
                     return Ok(false);
                 }
                 self.id_chain.push(dm.identifier().clone());
                 let key = crypto::decrypt(self.signature, &caveat.verifier_id().as_slice())?;
                 dm.verify_as_discharge(self, macaroon, key.as_slice())
             }
-            None => Ok(false),
+            None => {
+                info!("Verifier::verify_caveat: No discharge macaroon found matching caveat id \
+                       {:?}",
+                      caveat.id());
+                Ok(false)
+            }
         }
     }
 }
@@ -265,8 +273,8 @@ mod tests {
                                              "other keyid")
             .unwrap();
         discharge.add_third_party_caveat("http://auth.mybank/",
-                                        "this is another key".as_bytes(),
-                                        "other keyid");
+                                         "this is another key".as_bytes(),
+                                         "other keyid");
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
         verifier.satisfy_general(after_time_verifier);

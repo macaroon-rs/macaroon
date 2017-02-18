@@ -63,8 +63,13 @@ impl FirstPartyCaveat {
 }
 
 impl Caveat for FirstPartyCaveat {
-    fn verify(&self, _: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
+    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         let result = Ok(verifier.verify_predicate(&self.predicate));
+        if let Ok(false) = result {
+            info!("FirstPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
+                  self,
+                  macaroon);
+        }
         verifier.update_signature(|t| self.sign(t));
         result
     }
@@ -118,6 +123,11 @@ impl ThirdPartyCaveat {
 impl Caveat for ThirdPartyCaveat {
     fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         let result = verifier.verify_caveat(&self, macaroon);
+        if let Ok(false) = result {
+            info!("ThirdPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
+                  self,
+                  macaroon);
+        }
         verifier.update_signature(|t| self.sign(t));
         result
     }
