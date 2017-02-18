@@ -252,4 +252,26 @@ mod tests {
         let root_key = crypto::generate_derived_key("this is the key".as_bytes());
         assert!(macaroon.verify(&root_key, &mut verifier).unwrap());
     }
+
+    #[test]
+    fn test_macaroon_third_party_caveat_with_cycle() {
+        let mut macaroon =
+            Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+        macaroon.add_third_party_caveat("http://auth.mybank/",
+                                        "this is another key".as_bytes(),
+                                        "other keyid");
+        let mut discharge = Macaroon::create("http://auth.mybank/",
+                                             "this is another key".as_bytes(),
+                                             "other keyid")
+            .unwrap();
+        discharge.add_third_party_caveat("http://auth.mybank/",
+                                        "this is another key".as_bytes(),
+                                        "other keyid");
+        macaroon.bind(&mut discharge);
+        let mut verifier = Verifier::new();
+        verifier.satisfy_general(after_time_verifier);
+        verifier.add_discharge_macaroons(&vec![discharge]);
+        let root_key = crypto::generate_derived_key("this is the key".as_bytes());
+        assert!(!macaroon.verify(&root_key, &mut verifier).unwrap());
+    }
 }
