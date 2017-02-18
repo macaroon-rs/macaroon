@@ -44,28 +44,28 @@ fn packet_header(size: usize) -> Vec<u8> {
 
 pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut serialized: Vec<u8> = Vec::new();
-    match macaroon.get_location() {
+    match macaroon.location() {
         Some(ref location) => {
             serialized.extend(serialize_as_packet(LOCATION_V1, location.as_bytes()))
         }
         None => (),
     };
-    serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.get_identifier().as_bytes()));
-    for caveat in macaroon.get_caveats() {
+    serialized.extend(serialize_as_packet(IDENTIFIER_V1, macaroon.identifier().as_bytes()));
+    for caveat in macaroon.caveats() {
         match caveat.get_type() {
             CaveatType::FirstParty => {
                 let first_party = caveat.as_first_party().unwrap();
-                serialized.extend(serialize_as_packet(CID_V1, first_party.get_predicate().as_bytes()));
+                serialized.extend(serialize_as_packet(CID_V1, first_party.predicate().as_bytes()));
             }
             CaveatType::ThirdParty => {
                 let third_party = caveat.as_third_party().unwrap();
-                serialized.extend(serialize_as_packet(CID_V1, third_party.get_id().as_bytes()));
-                serialized.extend(serialize_as_packet(VID_V1, third_party.get_verifier_id().as_slice()));
-                serialized.extend(serialize_as_packet(CL_V1, third_party.get_location().as_bytes()))
+                serialized.extend(serialize_as_packet(CID_V1, third_party.id().as_bytes()));
+                serialized.extend(serialize_as_packet(VID_V1, third_party.verifier_id().as_slice()));
+                serialized.extend(serialize_as_packet(CL_V1, third_party.location().as_bytes()))
             }
         }
     }
-    serialized.extend(serialize_as_packet(SIGNATURE_V1, macaroon.get_signature()));
+    serialized.extend(serialize_as_packet(SIGNATURE_V1, macaroon.signature()));
     Ok(serialized.to_base64(STANDARD).as_bytes().to_vec())
 }
 
@@ -87,7 +87,7 @@ fn deserialize_as_packets<'r>(data: &'r [u8],
     let hex: &str = str::from_utf8(&data[..4])?;
     let size: usize = usize::from_str_radix(hex, 16)?;
     let packet_data = &data[4..size];
-    let index = try!(get_split_index(packet_data));
+    let index = try!(split_index(packet_data));
     let (key_slice, value_slice) = packet_data.split_at(index);
     packets.push(Packet {
         key: String::from_utf8(key_slice.to_vec())?,
@@ -96,7 +96,7 @@ fn deserialize_as_packets<'r>(data: &'r [u8],
     deserialize_as_packets(&data[size..], packets)
 }
 
-fn get_split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
+fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
     match packet.iter().position(|&r| r == ' ' as u8) {
         Some(index) => Ok(index),
         None => return Err(MacaroonError::DeserializationError(String::from("Key/value error"))),
@@ -159,21 +159,21 @@ mod tests {
                                        223, 233, 178, 78, 120, 94, 40, 226, 169, 147, 1, 249, 215,
                                        17, 198, 9, 227, 142, 247];
         let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
-        assert!(macaroon.get_location().is_some());
-        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
-        assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(signature.to_vec(), macaroon.get_signature());
+        assert!(macaroon.location().is_some());
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(signature.to_vec(), macaroon.signature());
         serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         signature = [245, 72, 7, 246, 220, 110, 223, 136, 191, 15, 115, 6, 179, 130, 37, 98, 163,
                      98, 83, 61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135];
         let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
-        assert!(macaroon.get_location().is_some());
-        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
-        assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(1, macaroon.get_caveats().len());
+        assert!(macaroon.location().is_some());
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(1, macaroon.caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
-        assert_eq!(signature.to_vec(), macaroon.get_signature());
+                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
+        assert_eq!(signature.to_vec(), macaroon.signature());
     }
 
     #[test]
@@ -182,15 +182,15 @@ mod tests {
         let signature = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155,
                          5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252];
         let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
-        assert!(macaroon.get_location().is_some());
-        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
-        assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(signature.to_vec(), macaroon.get_signature());
-        assert_eq!(2, macaroon.get_caveats().len());
+        assert!(macaroon.location().is_some());
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(signature.to_vec(), macaroon.signature());
+        assert_eq!(2, macaroon.caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
+                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
+                   macaroon.caveats()[1].as_first_party().unwrap().predicate());
     }
 
     #[test]

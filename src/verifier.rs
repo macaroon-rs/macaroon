@@ -79,15 +79,15 @@ impl Verifier {
                          macaroon: &Macaroon)
                          -> Result<bool, MacaroonError> {
         let dm = self.discharge_macaroons.clone();
-        let dm_opt = dm.iter().find(|dm| *dm.get_identifier() == caveat.get_id());
+        let dm_opt = dm.iter().find(|dm| *dm.identifier() == caveat.id());
         match dm_opt {
             Some(dm) => {
-                if self.id_chain.iter().any(|id| id == dm.get_identifier()) {
+                if self.id_chain.iter().any(|id| id == dm.identifier()) {
                     // TODO: Log id chain
                     return Ok(false);
                 }
-                self.id_chain.push(dm.get_identifier().clone());
-                let key = crypto::decrypt(self.signature, &caveat.get_verifier_id().as_slice())?;
+                self.id_chain.push(dm.identifier().clone());
+                let key = crypto::decrypt(self.signature, &caveat.verifier_id().as_slice())?;
                 dm.verify_as_discharge(self, macaroon, key.as_slice())
             }
             None => Ok(false),

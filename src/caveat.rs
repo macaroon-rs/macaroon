@@ -57,7 +57,7 @@ pub struct FirstPartyCaveat {
 
 impl FirstPartyCaveat {
     /// Accessor for the predicate
-    pub fn get_predicate(&self) -> String {
+    pub fn predicate(&self) -> String {
         self.predicate.clone()
     }
 }
@@ -100,17 +100,17 @@ pub struct ThirdPartyCaveat {
 
 impl ThirdPartyCaveat {
     /// Accessor for the identifier
-    pub fn get_id(&self) -> String {
+    pub fn id(&self) -> String {
         self.id.clone()
     }
 
     /// Accessor for the verifier ID
-    pub fn get_verifier_id(&self) -> Vec<u8> {
+    pub fn verifier_id(&self) -> Vec<u8> {
         self.verifier_id.clone()
     }
 
     /// Accessor for the location
-    pub fn get_location(&self) -> String {
+    pub fn location(&self) -> String {
         self.location.clone()
     }
 }

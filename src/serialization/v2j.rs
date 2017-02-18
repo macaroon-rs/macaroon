@@ -34,20 +34,20 @@ impl TryFrom<Macaroon> for V2JSerialization {
     fn try_from(macaroon: Macaroon) -> Result<Self, Self::Err> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
-            i: Some(macaroon.get_identifier().clone()),
+            i: Some(macaroon.identifier().clone()),
             i64: None,
-            l: macaroon.get_location().clone(),
+            l: macaroon.location().clone(),
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(macaroon.get_signature().to_base64(STANDARD)),
+            s64: Some(macaroon.signature().to_base64(STANDARD)),
         };
-        for caveat in macaroon.get_caveats() {
+        for caveat in macaroon.caveats() {
             match caveat.get_type() {
                 CaveatType::FirstParty => {
                     let first_party = caveat.as_first_party().unwrap();
                     let serialized_caveat: CaveatV2J = CaveatV2J {
-                        i: Some(String::from(first_party.get_predicate())),
+                        i: Some(String::from(first_party.predicate())),
                         i64: None,
                         l: None,
                         l64: None,
@@ -59,11 +59,11 @@ impl TryFrom<Macaroon> for V2JSerialization {
                 CaveatType::ThirdParty => {
                     let third_party = caveat.as_third_party().unwrap();
                     let serialized_caveat: CaveatV2J = CaveatV2J {
-                        i: Some(String::from(third_party.get_id())),
+                        i: Some(String::from(third_party.id())),
                         i64: None,
-                        l: Some(String::from(third_party.get_location())),
+                        l: Some(String::from(third_party.location())),
                         l64: None,
-                        v: Some(third_party.get_verifier_id()),
+                        v: Some(third_party.verifier_id()),
                         v64: None,
                     };
                     serialized.c.push(serialized_caveat);
@@ -194,14 +194,14 @@ mod tests {
     fn test_deserialize_v2j() {
         let serialized_v2j: Vec<u8> = SERIALIZED_V2J.as_bytes().to_vec();
         let macaroon = super::deserialize_v2j(&serialized_v2j).unwrap();
-        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
-        assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(2, macaroon.get_caveats().len());
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(2, macaroon.caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
+                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
-        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
+                   macaroon.caveats()[1].as_first_party().unwrap().predicate());
+        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature());
     }
 
     #[test]

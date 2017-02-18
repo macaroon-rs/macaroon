@@ -33,40 +33,40 @@ fn serialize_field_v2(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
 pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
-    match macaroon.get_location() {
+    match macaroon.location() {
         Some(ref location) => {
             serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
         }
         None => (),
     };
     serialize_field_v2(IDENTIFIER_V2,
-                       &macaroon.get_identifier().as_bytes().to_vec(),
+                       &macaroon.identifier().as_bytes().to_vec(),
                        &mut buffer);
     buffer.push(EOS_V2);
-    for caveat in macaroon.get_caveats() {
+    for caveat in macaroon.caveats() {
         match caveat.get_type() {
             CaveatType::FirstParty => {
                 let first_party = caveat.as_first_party().unwrap();
                 serialize_field_v2(IDENTIFIER_V2,
-                                   &first_party.get_predicate().as_bytes().to_vec(),
+                                   &first_party.predicate().as_bytes().to_vec(),
                                    &mut buffer);
                 buffer.push(EOS_V2);
             }
             CaveatType::ThirdParty => {
                 let third_party = caveat.as_third_party().unwrap();
                 serialize_field_v2(LOCATION_V2,
-                                   third_party.get_location().as_bytes(),
+                                   third_party.location().as_bytes(),
                                    &mut buffer);
-                serialize_field_v2(IDENTIFIER_V2, third_party.get_id().as_bytes(), &mut buffer);
+                serialize_field_v2(IDENTIFIER_V2, third_party.id().as_bytes(), &mut buffer);
                 serialize_field_v2(VID_V2,
-                                   third_party.get_verifier_id().as_slice(),
+                                   third_party.verifier_id().as_slice(),
                                    &mut buffer);
                 buffer.push(EOS_V2);
             }
         }
     }
     buffer.push(EOS_V2);
-    serialize_field_v2(SIGNATURE_V2, macaroon.get_signature(), &mut buffer);
+    serialize_field_v2(SIGNATURE_V2, macaroon.signature(), &mut buffer);
     Ok(buffer)
 }
 
@@ -237,14 +237,14 @@ mod tests {
     fn test_deserialize_v2() {
         let serialized_v2: Vec<u8> = SERIALIZED_V2.from_base64().unwrap();
         let macaroon = super::deserialize_v2(&serialized_v2).unwrap();
-        assert_eq!("http://example.org/", &macaroon.get_location().unwrap());
-        assert_eq!("keyid", macaroon.get_identifier());
-        assert_eq!(2, macaroon.get_caveats().len());
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(2, macaroon.caveats().len());
         assert_eq!("account = 3735928559",
-                   macaroon.get_caveats()[0].as_first_party().unwrap().get_predicate());
+                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
         assert_eq!("user = alice",
-                   macaroon.get_caveats()[1].as_first_party().unwrap().get_predicate());
-        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.get_signature());
+                   macaroon.caveats()[1].as_first_party().unwrap().predicate());
+        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature());
     }
 
     #[test]
