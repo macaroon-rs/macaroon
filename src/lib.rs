@@ -28,10 +28,10 @@
 //!
 //! # Example
 //! ```
-//! use libmacaroon::{Macaroon, Verifier};
+//! use macaroon::{Macaroon, Verifier};
 //!
 //! // Initialize to make crypto primitives thread-safe
-//! libmacaroon::initialize().unwrap(); // Force panic if initialization fails
+//! macaroon::initialize().unwrap(); // Force panic if initialization fails
 //!
 //! // First-party caveat
 //! let mut macaroon = match Macaroon::create("location", b"key", "id") {
