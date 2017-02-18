@@ -123,9 +123,9 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create(location: &'static str,
+    pub fn create<'r>(location: &'r str,
                   key: &[u8],
-                  identifier: &'static str)
+                  identifier: &'r str)
                   -> Result<Macaroon, MacaroonError> {
         let macaroon_key = crypto::generate_derived_key(key);
 
@@ -205,7 +205,7 @@ impl Macaroon {
     /// DSL which can be verified either by exact string match,
     /// or by using a function to parse the string and validate it
     /// (see Verifier for more info).
-    pub fn add_first_party_caveat(&mut self, predicate: &'static str) {
+    pub fn add_first_party_caveat<'r>(&mut self, predicate: &'r str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(box caveat);
