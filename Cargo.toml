@@ -2,6 +2,13 @@
 name = "macaroon"
 version = "0.1.0"
 authors = ["Jack Lund <jackl@geekheads.net>"]
+description = "Fully functional implementation of macaroons in Rust"
+documentation = "https://docs.rs/macaroon"
+homepage = "https://github.com/jacklund/libmacaroon-rs"
+repository = "https://github.com/jacklund/libmacaroon-rs"
+keywords = ["macaroon", "cookies", "authorization", "credentials"]
+categories = ["cryptography"]
+license = "MIT"
 
 [dependencies]
 log = "0.3.6"
