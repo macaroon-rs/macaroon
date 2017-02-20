@@ -33,23 +33,33 @@
 //! // Initialize to make crypto primitives thread-safe
 //! macaroon::initialize().unwrap(); // Force panic if initialization fails
 //!
-//! // First-party caveat
+//! // Create our macaroon
 //! let mut macaroon = match Macaroon::create("location", b"key", "id") {
 //!     Ok(macaroon) => macaroon,
 //!     Err(error) => panic!("Error creating macaroon: {:?}", error),
 //! };
+//!
+//! // Add our first-party caveat. We say that only someone with account 12345678
+//! // is authorized to access whatever the macaroon is protecting
+//! // Note that we can add however many of these we want, with different predicates
 //! macaroon.add_first_party_caveat("account = 12345678");
 //!
-//! // Now we verify the caveat
+//! // Now we verify the macaroon
+//! // First we create the verifier
 //! let mut verifier = Verifier::new();
+//! 
+//! // We assert that the account number is "12345678"
 //! verifier.satisfy_exact("account = 12345678");
+//!
+//! // Now we verify the macaroon. It should return `Ok(true)` if the user is authorized
 //! match macaroon.verify(b"key", &mut verifier) {
 //!     Ok(true) => println!("Macaroon verified!"),
 //!     Ok(false) => println!("Macaroon verification failed"),
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
 //! }
 //!
-//! // Add a third-party caveat
+//! // Now, let's add a third-party caveat, which just says that we need our third party
+//! // to authorize this for us as well.
 //! macaroon.add_third_party_caveat("https://auth.mybank", b"different key", "caveat id");
 //!
 //! // When we're ready to verify a third-party caveat, we use the location
@@ -61,9 +71,10 @@
 //!     Ok(discharge) => discharge,
 //!     Err(error) => panic!("Error creating discharge macaroon: {:?}", error),
 //! };
+//! // And this is the criterion the third party requires for authorization
 //! discharge.add_first_party_caveat("account = 12345678");
 //!
-//! // Once we receive the discharge macaroons, we bind them to the original macaroon
+//! // Once we receive the discharge macaroon, we bind it to the original macaroon
 //! macaroon.bind(&mut discharge);
 //!
 //! // Then we can verify using the same verifier (which will verify both the existing
@@ -75,6 +86,12 @@
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
 //! }
 //! ```
+//! # Supported Features
+//! This crate supports all the following features:
+//!
+//! - verification of first-party caveats either via exact string match or passed-in function
+//! - verification of third-party caveats using discharge macaroons (including ones that themselves have embedded third-party caveats)
+//! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
 
 #![feature(proc_macro)]
 #![feature(try_from)]
