@@ -3,6 +3,9 @@ rust:
   - stable
   - beta
   - nightly
+before_install:
+- sudo apt-get update -qq
+- sudo apt-get install -qq libsodium-dev libsodium18
 matrix:
   allow_failures:
     - rust: stable
