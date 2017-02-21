@@ -2,6 +2,8 @@
 
 Rust implementation of [macaroons](https://research.google.com/pubs/pub41892.html).
 
+[![Build Status](https://travis-ci.org/jacklund/libmacaroon-rs.svg?branch=master)](https://travis-ci.org/jacklund/libmacaroon-rs)
+
 - [Documentation](https://docs.rs/macaroon)
 - [Entry at `crates.io`](https://crates.io/crates/macaroon)
 
