@@ -1,7 +1,6 @@
 language: rust
 rust:
   - stable
-  - beta
   - nightly
 install:
 - sudo add-apt-repository -y ppa:chris-lea/libsodium
@@ -9,4 +8,11 @@ install:
 matrix:
   allow_failures:
     - rust: stable
-    - rust: beta
+after_success: |
+  sudo add-apt-repository -y ppa:kubuntu-ppa/backports &&
+  sudo apt-get update &&
+  sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libiberty-dev &&
+  wget https://github.com/SimonKagstrom/kcov/archive/v33.tar.gz &&
+  tar xzf v33.tar.gz && mkdir kcov-33/build && cd kcov-33/build && cmake .. && make &&
+  sudo make install && cd ../.. &&
+  kcov --verify --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo target/kcov $(find target/debug -maxdepth 1 -executable -name macaroon-\*)
