@@ -206,7 +206,9 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_v2j() {
-        let macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V2, "keyid").unwrap();
+        let mut macaroon = Macaroon::create("http://example.org/", &SIGNATURE_V2, "keyid").unwrap();
+        macaroon.add_first_party_caveat("user = alice");
+        macaroon.add_third_party_caveat("https://auth.mybank.com/", b"my key", "keyid");
         let serialized = macaroon.serialize(Format::V2J).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);

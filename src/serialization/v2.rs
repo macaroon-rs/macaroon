@@ -54,13 +54,9 @@ pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
             }
             CaveatType::ThirdParty => {
                 let third_party = caveat.as_third_party().unwrap();
-                serialize_field_v2(LOCATION_V2,
-                                   third_party.location().as_bytes(),
-                                   &mut buffer);
+                serialize_field_v2(LOCATION_V2, third_party.location().as_bytes(), &mut buffer);
                 serialize_field_v2(IDENTIFIER_V2, third_party.id().as_bytes(), &mut buffer);
-                serialize_field_v2(VID_V2,
-                                   third_party.verifier_id().as_slice(),
-                                   &mut buffer);
+                serialize_field_v2(VID_V2, third_party.verifier_id().as_slice(), &mut buffer);
                 buffer.push(EOS_V2);
             }
         }
@@ -227,16 +223,16 @@ mod tests {
     use serialize::base64::FromBase64;
     use caveat;
     use serialization::macaroon_builder::MacaroonBuilder;
-
-    const SERIALIZED_V2: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
-    const SIGNATURE_V2: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
-                                    238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169, 60,
-                                    141, 14, 18, 94, 252];
+    use Macaroon;
 
     #[test]
     fn test_deserialize_v2() {
-        let serialized_v2: Vec<u8> = SERIALIZED_V2.from_base64().unwrap();
-        let macaroon = super::deserialize_v2(&serialized_v2).unwrap();
+        const SERIALIZED: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
+        const SIGNATURE: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
+                                     238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
+                                     60, 141, 14, 18, 94, 252];
+        let serialized: Vec<u8> = SERIALIZED.from_base64().unwrap();
+        let macaroon = super::deserialize_v2(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
@@ -244,18 +240,43 @@ mod tests {
                    macaroon.caveats()[0].as_first_party().unwrap().predicate());
         assert_eq!("user = alice",
                    macaroon.caveats()[1].as_first_party().unwrap().predicate());
-        assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature());
+        assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
     }
 
     #[test]
     fn test_serialize_v2() {
+        const SERIALIZED: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
+        const SIGNATURE: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
+                                     238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
+                                     60, 141, 14, 18, 94, 252];
         let mut builder = MacaroonBuilder::new();
         builder.add_caveat(box caveat::new_first_party("account = 3735928559"));
         builder.add_caveat(box caveat::new_first_party("user = alice"));
         builder.set_location("http://example.org/");
         builder.set_identifier("keyid");
-        builder.set_signature(&SIGNATURE_V2);
+        builder.set_signature(&SIGNATURE);
         let serialized = super::serialize_v2(&builder.build().unwrap()).unwrap();
-        assert_eq!(SERIALIZED_V2.from_base64().unwrap(), serialized);
+        assert_eq!(SERIALIZED.from_base64().unwrap(), serialized);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_v2() {
+        let mut macaroon = Macaroon::create("http://example.org/", b"key", "keyid").unwrap();
+        macaroon.add_first_party_caveat("account = 3735928559");
+        macaroon.add_first_party_caveat("user = alice");
+        macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat");
+        let serialized = super::serialize_v2(&macaroon).unwrap();
+        macaroon = super::deserialize_v2(&serialized).unwrap();
+        assert_eq!("http://example.org/", &macaroon.location().unwrap());
+        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(3, macaroon.caveats().len());
+        assert_eq!("account = 3735928559",
+                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
+        assert_eq!("user = alice",
+                   macaroon.caveats()[1].as_first_party().unwrap().predicate());
+        assert_eq!("caveat",
+                   macaroon.caveats()[2].as_third_party().unwrap().id());
+        assert_eq!("https://auth.mybank.com",
+                   macaroon.caveats()[2].as_third_party().unwrap().location());
     }
 }

@@ -215,3 +215,32 @@ impl CaveatBuilder {
         Err(MacaroonError::BadMacaroon("Verifier ID but no location found"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Caveat, new_first_party, new_third_party};
+
+    #[test]
+    fn test_caveat_partial_equals_first_party() {
+        let a = new_first_party("user = alice");
+        let b = new_first_party("user = alice");
+        let c = new_first_party("user = bob");
+        let box_a: Box<Caveat> = box a;
+        let box_b: Box<Caveat> = box b;
+        let box_c: Box<Caveat> = box c;
+        assert_eq!(*box_a, *box_b);
+        assert!(*box_a != *box_c);
+    }
+
+    #[test]
+    fn test_caveat_partial_equals_third_party() {
+        let a = new_third_party("foo", b"bar".to_vec(), "foobar");
+        let b = new_third_party("foo", b"bar".to_vec(), "foobar");
+        let c = new_third_party("baz", b"bar".to_vec(), "foobar");
+        let box_a: Box<Caveat> = box a;
+        let box_b: Box<Caveat> = box b;
+        let box_c: Box<Caveat> = box c;
+        assert_eq!(*box_a, *box_b);
+        assert!(*box_a != *box_c);
+    }
+}
