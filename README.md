@@ -4,6 +4,7 @@ Rust implementation of [macaroons](https://research.google.com/pubs/pub41892.htm
 
 [![Build Status](https://travis-ci.org/jacklund/libmacaroon-rs.svg?branch=master)](https://travis-ci.org/jacklund/libmacaroon-rs)
 [![crates.io](https://img.shields.io/crates/v/macaroon.svg)](https://crates.io/crates/macaroon)
+[![Coverage Status](https://coveralls.io/repos/github/jacklund/libmacaroon-rs/badge.svg?branch=coveralls)](https://coveralls.io/github/jacklund/libmacaroon-rs?branch=coveralls)
 
 - [Documentation](https://docs.rs/macaroon)
 - [Entry at `crates.io`](https://crates.io/crates/macaroon)
