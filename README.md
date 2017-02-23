@@ -57,7 +57,7 @@ $ rustup default nightly
 In your `Cargo.toml`:
 ```
 [dependencies]
-macaroon = 0.1.0
+macaroon = 0.1.1
 ```
 
 ### Examples
