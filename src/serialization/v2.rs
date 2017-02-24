@@ -33,11 +33,8 @@ fn serialize_field_v2(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
 pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
-    match macaroon.location() {
-        Some(ref location) => {
-            serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer)
-        }
-        None => (),
+    if let Some(ref location) = macaroon.location() {
+        serialize_field_v2(LOCATION_V2, &location.as_bytes().to_vec(), &mut buffer);
     };
     serialize_field_v2(IDENTIFIER_V2,
                        &macaroon.identifier().as_bytes().to_vec(),
@@ -72,7 +69,7 @@ struct V2Deserializer<'r> {
 }
 
 impl<'r> V2Deserializer<'r> {
-    pub fn new(data: &Vec<u8>) -> V2Deserializer {
+    pub fn new(data: &[u8]) -> V2Deserializer {
         V2Deserializer {
             data: data,
             index: 0,
@@ -130,7 +127,7 @@ impl<'r> V2Deserializer<'r> {
     }
 }
 
-pub fn deserialize_v2(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: V2Deserializer = V2Deserializer::new(data);
     if try!(deserializer.get_byte()) != 2 {

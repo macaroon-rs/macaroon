@@ -10,6 +10,7 @@ pub type VerifierCallback = fn(&str) -> bool;
 ///
 /// Contains all information and maintains all state for the macaroon
 /// verification process
+#[derive(Default)]
 pub struct Verifier {
     predicates: Vec<String>,
     callbacks: Vec<VerifierCallback>,
@@ -21,13 +22,7 @@ pub struct Verifier {
 impl Verifier {
     /// Create a new Verifier
     pub fn new() -> Verifier {
-        Verifier {
-            predicates: Vec::new(),
-            callbacks: Vec::new(),
-            discharge_macaroons: Vec::new(),
-            signature: [0; 32],
-            id_chain: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn reset(&mut self) {
@@ -46,8 +41,8 @@ impl Verifier {
     }
 
     /// Adds discharge macaroons to the verifier
-    pub fn add_discharge_macaroons(&mut self, discharge_macaroons: &Vec<Macaroon>) {
-        self.discharge_macaroons.extend(discharge_macaroons.clone());
+    pub fn add_discharge_macaroons(&mut self, discharge_macaroons: &[Macaroon]) {
+        self.discharge_macaroons.extend(discharge_macaroons.to_vec());
     }
 
     pub fn set_signature(&mut self, signature: [u8; 32]) {
@@ -90,7 +85,7 @@ impl Verifier {
                     return Ok(false);
                 }
                 self.id_chain.push(dm.identifier().clone());
-                let key = crypto::decrypt(self.signature, &caveat.verifier_id().as_slice())?;
+                let key = crypto::decrypt(self.signature, caveat.verifier_id().as_slice())?;
                 dm.verify_as_discharge(self, macaroon, key.as_slice())
             }
             None => {

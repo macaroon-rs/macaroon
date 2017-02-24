@@ -16,11 +16,11 @@ impl MacaroonBuilder {
     }
 
     pub fn set_identifier(&mut self, identifier: &str) {
-        self.identifier = identifier.clone().to_string();
+        self.identifier = (*identifier).to_string();
     }
 
     pub fn set_location(&mut self, location: &str) {
-        self.location = Some(location.clone().to_string());
+        self.location = Some((*location).to_string());
     }
 
     pub fn has_location(&self) -> bool {

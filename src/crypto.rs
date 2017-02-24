@@ -5,7 +5,7 @@ use sodiumoxide::crypto::secretbox;
 const KEY_GENERATOR: &'static [u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
 
 pub fn generate_derived_key(key: &[u8]) -> [u8; 32] {
-    hmac(&KEY_GENERATOR, key)
+    hmac(KEY_GENERATOR, key)
 }
 
 pub fn generate_signature(key: &[u8], text: &str) -> [u8; 32] {
@@ -45,7 +45,7 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     let mut temp: Vec<u8> = Vec::new();
     temp.extend_from_slice(&data[secretbox::NONCEBYTES..]);
     let ciphertext = temp.as_slice();
-    match secretbox::open(&ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
+    match secretbox::open(ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
         Ok(plaintext) => Ok(plaintext),
         Err(()) => {
             error!("crypto::decrypt: Unknown decryption error decrypting {:?}", data);

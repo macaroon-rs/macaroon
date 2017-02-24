@@ -47,7 +47,7 @@
 //! // Now we verify the macaroon
 //! // First we create the verifier
 //! let mut verifier = Verifier::new();
-//! 
+//!
 //! // We assert that the account number is "12345678"
 //! verifier.satisfy_exact("account = 12345678");
 //!
@@ -123,9 +123,10 @@ use caveat::{Caveat, CaveatType};
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
 pub fn initialize() -> Result<(), MacaroonError> {
-    match sodiumoxide::init() {
-        true => Ok(()),
-        false => Err(MacaroonError::InitializationError),
+    if sodiumoxide::init() {
+        Ok(())
+    } else {
+        Err(MacaroonError::InitializationError)
     }
 }
 
@@ -210,7 +211,7 @@ impl Macaroon {
     /// Generate a signature for the given macaroon
     pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
         let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
-        self.caveats.iter().fold(signature, |sig, ref caveat| caveat.sign(&sig))
+        self.caveats.iter().fold(signature, |sig, caveat| caveat.sign(&sig))
     }
 
     /// Verify the signature of the macaroon given the key
@@ -325,7 +326,7 @@ impl Macaroon {
     }
 
     /// Deserialize a macaroon
-    pub fn deserialize(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
+    pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2j::deserialize_v2j(data)?,
             '\x02' => serialization::v2::deserialize_v2(data)?,

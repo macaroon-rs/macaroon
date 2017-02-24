@@ -38,12 +38,12 @@ impl PartialEq for Caveat {
             CaveatType::FirstParty => {
                 let me = self.as_first_party();
                 let you = other.as_first_party();
-                return me == you;
+                me == you
             }
             CaveatType::ThirdParty => {
                 let me = self.as_third_party();
                 let you = other.as_third_party();
-                return me == you;
+                me == you
             }
         }
     }
@@ -122,7 +122,7 @@ impl ThirdPartyCaveat {
 
 impl Caveat for ThirdPartyCaveat {
     fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
-        let result = verifier.verify_caveat(&self, macaroon);
+        let result = verifier.verify_caveat(self, macaroon);
         if let Ok(false) = result {
             info!("ThirdPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
                   self,

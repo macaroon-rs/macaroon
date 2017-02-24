@@ -105,9 +105,8 @@ impl TryFrom<V2JSerialization> for Macaroon {
         match ser.l {
             Some(loc) => builder.set_location(&loc),
             None => {
-                match ser.l64 {
-                    Some(loc) => builder.set_location(&String::from_utf8(loc.from_base64()?)?),
-                    None => (),
+                if let Some(loc) = ser.l64 {
+                    builder.set_location(&String::from_utf8(loc.from_base64()?)?)
                 }
             }
         };
@@ -142,20 +141,16 @@ impl TryFrom<V2JSerialization> for Macaroon {
             match c.l {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
-                    match c.l64 {
-                        Some(loc64) => {
-                            caveat_builder.add_location(String::from_utf8(loc64.from_base64()?)?)
-                        }
-                        None => (),
+                    if let Some(loc64) = c.l64 {
+                        caveat_builder.add_location(String::from_utf8(loc64.from_base64()?)?)
                     }
                 }
             };
             match c.v {
                 Some(vid) => caveat_builder.add_verifier_id(vid),
                 None => {
-                    match c.v64 {
-                        Some(vid64) => caveat_builder.add_verifier_id(vid64.from_base64()?),
-                        None => (),
+                    if let Some(vid64) = c.v64 {
+                        caveat_builder.add_verifier_id(vid64.from_base64()?)
                     }
                 }
             };
@@ -172,8 +167,8 @@ pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     Ok(serialized.into_bytes())
 }
 
-pub fn deserialize_v2j(data: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
-    let v2j: V2JSerialization = serde_json::from_slice(data.as_slice())?;
+pub fn deserialize_v2j(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+    let v2j: V2JSerialization = serde_json::from_slice(data)?;
     Macaroon::try_from(v2j)
 }
 

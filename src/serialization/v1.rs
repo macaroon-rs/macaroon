@@ -20,9 +20,9 @@ fn serialize_as_packet<'r>(tag: &'r str, value: &'r [u8]) -> Vec<u8> {
     let size = HEADER_SIZE + 2 + tag.len() + value.len();
     packet.extend(packet_header(size));
     packet.extend_from_slice(tag.as_bytes());
-    packet.extend_from_slice(" ".as_bytes());
+    packet.extend_from_slice(b" ");
     packet.extend_from_slice(value);
-    packet.extend_from_slice("\n".as_bytes());
+    packet.extend_from_slice(b"\n");
 
     packet
 }
@@ -44,11 +44,8 @@ fn packet_header(size: usize) -> Vec<u8> {
 
 pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut serialized: Vec<u8> = Vec::new();
-    match macaroon.location() {
-        Some(ref location) => {
-            serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()))
-        }
-        None => (),
+    if let Some(ref location) = macaroon.location() {
+        serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
     };
     serialized.extend(serialize_as_packet(IDENTIFIER, macaroon.identifier().as_bytes()));
     for caveat in macaroon.caveats() {
@@ -78,9 +75,9 @@ struct Packet {
     value: Vec<u8>,
 }
 
-fn deserialize_as_packets<'r>(data: &'r [u8],
-                              mut packets: Vec<Packet>)
-                              -> Result<Vec<Packet>, MacaroonError> {
+fn deserialize_as_packets(data: &[u8],
+                          mut packets: Vec<Packet>)
+                          -> Result<Vec<Packet>, MacaroonError> {
     if data.len() == 0 {
         return Ok(packets);
     }
@@ -92,20 +89,20 @@ fn deserialize_as_packets<'r>(data: &'r [u8],
     packets.push(Packet {
         key: String::from_utf8(key_slice.to_vec())?,
         // skip beginning space and terminating \n
-        value: value_slice[1..value_slice.len()-1].to_vec(),
+        value: value_slice[1..value_slice.len() - 1].to_vec(),
     });
     deserialize_as_packets(&data[size..], packets)
 }
 
 fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
-    match packet.iter().position(|&r| r == ' ' as u8) {
+    match packet.iter().position(|&r| r == b' ') {
         Some(index) => Ok(index),
-        None => return Err(MacaroonError::DeserializationError(String::from("Key/value error"))),
+        None => Err(MacaroonError::DeserializationError(String::from("Key/value error"))),
     }
 }
 
-pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
-    let data = try!(base64_decode(&String::from_utf8(base64.clone())?));
+pub fn deserialize_v1(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
+    let data = try!(base64_decode(&String::from_utf8(base64.to_vec())?));
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
     for packet in try!(deserialize_as_packets(data.as_slice(), Vec::new())) {
@@ -142,9 +139,7 @@ pub fn deserialize_v1(base64: &Vec<u8>) -> Result<Macaroon, MacaroonError> {
             VID => {
                 caveat_builder.add_verifier_id(packet.value);
             }
-            CL => {
-                caveat_builder.add_location(String::from(String::from_utf8(packet.value)?))
-            }
+            CL => caveat_builder.add_location(String::from(String::from_utf8(packet.value)?)),
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),
         };
     }
