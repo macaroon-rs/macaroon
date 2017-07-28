@@ -30,8 +30,8 @@ struct V2JSerialization {
 }
 
 impl TryFrom<Macaroon> for V2JSerialization {
-    type Err = MacaroonError;
-    fn try_from(macaroon: Macaroon) -> Result<Self, Self::Err> {
+    type Error = MacaroonError;
+    fn try_from(macaroon: Macaroon) -> Result<Self, Self::Error> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
             i: Some(macaroon.identifier().clone()),
@@ -76,8 +76,8 @@ impl TryFrom<Macaroon> for V2JSerialization {
 }
 
 impl TryFrom<V2JSerialization> for Macaroon {
-    type Err = MacaroonError;
-    fn try_from(ser: V2JSerialization) -> Result<Self, Self::Err> {
+    type Error = MacaroonError;
+    fn try_from(ser: V2JSerialization) -> Result<Self, Self::Error> {
         if ser.i.is_some() && ser.i64.is_some() {
             return Err(MacaroonError::DeserializationError(String::from("Found i and i64 fields")));
         }
