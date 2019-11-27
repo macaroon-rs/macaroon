@@ -14,12 +14,12 @@ pub fn generate_signature(key: &[u8], text: &str) -> [u8; 32] {
     hmac(&key_bytes, text.as_bytes())
 }
 
-pub fn hmac<'r>(key: &'r [u8; 32], text: &'r [u8]) -> [u8; 32] {
+pub fn hmac(key: &[u8; 32], text: &[u8]) -> [u8; 32] {
     let Tag(result_bytes) = hmacsha256::authenticate(text, &Key(*key));
     result_bytes
 }
 
-pub fn hmac2<'r>(key: &'r [u8; 32], text1: &'r [u8], text2: &'r [u8]) -> [u8; 32] {
+pub fn hmac2(key: &[u8; 32], text1: &[u8], text2: &[u8]) -> [u8; 32] {
     let tmp1: [u8; 32] = hmac(key, text1);
     let tmp2: [u8; 32] = hmac(key, text2);
     let tmp = [tmp1, tmp2].concat();
@@ -30,7 +30,7 @@ pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
     let nonce = secretbox::gen_nonce();
     let encrypted = secretbox::seal(plaintext, &nonce, &secretbox::Key(key));
     let mut ret: Vec<u8> = Vec::new();
-    ret.extend_from_slice(nonce.as_ref());
+    ret.extend(&nonce.0);
     ret.extend(encrypted);
     ret
 }
@@ -43,7 +43,7 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     let mut nonce: [u8; secretbox::NONCEBYTES] = [0; secretbox::NONCEBYTES];
     nonce.clone_from_slice(&data[..secretbox::NONCEBYTES]);
     let mut temp: Vec<u8> = Vec::new();
-    temp.extend_from_slice(&data[secretbox::NONCEBYTES..]);
+    temp.extend(&data[secretbox::NONCEBYTES..]);
     let ciphertext = temp.as_slice();
     match secretbox::open(ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
         Ok(plaintext) => Ok(plaintext),
