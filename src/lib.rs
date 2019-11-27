@@ -135,9 +135,9 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create<'r>(location: &'r str,
+    pub fn create(location: &str,
                       key: &[u8],
-                      identifier: &'r str)
+                      identifier: &str)
                       -> Result<Macaroon, MacaroonError> {
         let macaroon_key = crypto::generate_derived_key(key);
 
