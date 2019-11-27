@@ -94,7 +94,7 @@
 //! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
 #[macro_use]
 extern crate log;
-extern crate rustc_serialize as serialize;
+extern crate base64;
 extern crate sodiumoxide;
 extern crate serde;
 extern crate serde_json;

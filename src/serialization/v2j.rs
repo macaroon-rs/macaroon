@@ -1,5 +1,4 @@
 use serde_json;
-use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use serde::{Serialize, Deserialize};
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
@@ -40,7 +39,7 @@ impl V2JSerialization {
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(macaroon.signature().to_base64(STANDARD)),
+            s64: Some(base64::encode_config(macaroon.signature(), base64::URL_SAFE)),
         };
         for caveat in macaroon.caveats() {
             match caveat.get_type() {
@@ -93,7 +92,7 @@ impl Macaroon {
             Some(id) => id,
             None => {
                 match ser.i64 {
-                    Some(id) => String::from_utf8(id.from_base64()?)?,
+                    Some(id) => String::from_utf8(base64::decode_config(&id, base64::URL_SAFE)?)?,
                     None => {
                         return Err(MacaroonError::DeserializationError(String::from("No identifier \
                                                                                      found")))
@@ -106,7 +105,7 @@ impl Macaroon {
             Some(loc) => builder.set_location(&loc),
             None => {
                 if let Some(loc) = ser.l64 {
-                    builder.set_location(&String::from_utf8(loc.from_base64()?)?)
+                    builder.set_location(&String::from_utf8(base64::decode_config(&loc, base64::URL_SAFE)?)?)
                 }
             }
         };
@@ -115,7 +114,7 @@ impl Macaroon {
             Some(sig) => sig,
             None => {
                 match ser.s64 {
-                    Some(sig) => sig.from_base64()?,
+                    Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
                     None => {
                         return Err(MacaroonError::DeserializationError(String::from("No signature \
                                                                                      found")))
@@ -130,7 +129,7 @@ impl Macaroon {
                 Some(id) => id,
                 None => {
                     match c.i64 {
-                        Some(id64) => String::from_utf8(id64.from_base64()?)?,
+                        Some(id64) => String::from_utf8(base64::decode_config(&id64, base64::URL_SAFE)?)?,
                         None => {
                             return Err(MacaroonError::DeserializationError(String::from("No caveat \
                                                                                          ID found")))
@@ -142,7 +141,7 @@ impl Macaroon {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     if let Some(loc64) = c.l64 {
-                        caveat_builder.add_location(String::from_utf8(loc64.from_base64()?)?)
+                        caveat_builder.add_location(String::from_utf8(base64::decode_config(&loc64, base64::URL_SAFE)?)?)
                     }
                 }
             };
@@ -150,7 +149,7 @@ impl Macaroon {
                 Some(vid) => caveat_builder.add_verifier_id(vid),
                 None => {
                     if let Some(vid64) = c.v64 {
-                        caveat_builder.add_verifier_id(vid64.from_base64()?)
+                        caveat_builder.add_verifier_id(base64::decode_config(&vid64, base64::URL_SAFE)?)
                     }
                 }
             };

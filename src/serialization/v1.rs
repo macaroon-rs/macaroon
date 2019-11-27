@@ -1,4 +1,3 @@
-use serialize::base64::{STANDARD, ToBase64, FromBase64};
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
 use Macaroon;
@@ -63,11 +62,11 @@ pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         }
     }
     serialized.extend(serialize_as_packet(SIGNATURE, macaroon.signature()));
-    Ok(serialized.to_base64(STANDARD).as_bytes().to_vec())
+    Ok(base64::encode_config(&serialized, base64::URL_SAFE).as_bytes().to_vec())
 }
 
-fn base64_decode(base64: &str) -> Result<Vec<u8>, MacaroonError> {
-    Ok(base64.from_base64()?)
+fn base64_decode(s: &str) -> Result<Vec<u8>, MacaroonError> {
+    Ok(base64::decode_config(s, base64::URL_SAFE)?)
 }
 
 struct Packet {

@@ -217,7 +217,6 @@ pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
 
 #[cfg(test)]
 mod tests {
-    use serialize::base64::FromBase64;
     use caveat;
     use serialization::macaroon_builder::MacaroonBuilder;
     use Macaroon;
@@ -228,7 +227,7 @@ mod tests {
         const SIGNATURE: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
                                      238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
                                      60, 141, 14, 18, 94, 252];
-        let serialized: Vec<u8> = SERIALIZED.from_base64().unwrap();
+        let serialized: Vec<u8> = base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap();
         let macaroon = super::deserialize_v2(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
@@ -253,7 +252,7 @@ mod tests {
         builder.set_identifier("keyid");
         builder.set_signature(&SIGNATURE);
         let serialized = super::serialize_v2(&builder.build().unwrap()).unwrap();
-        assert_eq!(SERIALIZED.from_base64().unwrap(), serialized);
+        assert_eq!(base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap(), serialized);
     }
 
     #[test]

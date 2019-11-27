@@ -1,5 +1,4 @@
 use serde_json;
-use serialize::base64;
 use std::{num, str, string};
 
 #[derive(Debug)]
@@ -26,8 +25,8 @@ impl From<string::FromUtf8Error> for MacaroonError {
     }
 }
 
-impl From<base64::FromBase64Error> for MacaroonError {
-    fn from(error: base64::FromBase64Error) -> MacaroonError {
+impl From<base64::DecodeError> for MacaroonError {
+    fn from(error: base64::DecodeError) -> MacaroonError {
         MacaroonError::DeserializationError(format!("{}", error))
     }
 }
