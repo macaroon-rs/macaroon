@@ -1,10 +1,10 @@
-use serde_json;
-use serde::{Serialize, Deserialize};
-use std::str;
 use caveat::{CaveatBuilder, CaveatType};
-use Macaroon;
 use error::MacaroonError;
+use serde::{Deserialize, Serialize};
+use serde_json;
 use serialization::macaroon_builder::MacaroonBuilder;
+use std::str;
+use Macaroon;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct CaveatV2J {
@@ -29,7 +29,6 @@ struct V2JSerialization {
 }
 
 impl V2JSerialization {
-
     fn from_macaroon(macaroon: Macaroon) -> Result<V2JSerialization, MacaroonError> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
@@ -39,7 +38,10 @@ impl V2JSerialization {
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(base64::encode_config(macaroon.signature(), base64::URL_SAFE)),
+            s64: Some(base64::encode_config(
+                macaroon.signature(),
+                base64::URL_SAFE,
+            )),
         };
         for caveat in macaroon.caveats() {
             match caveat.get_type() {
@@ -75,73 +77,86 @@ impl V2JSerialization {
 }
 
 impl Macaroon {
-
     fn from_v2j(ser: V2JSerialization) -> Result<Macaroon, MacaroonError> {
         if ser.i.is_some() && ser.i64.is_some() {
-            return Err(MacaroonError::DeserializationError(String::from("Found i and i64 fields")));
+            return Err(MacaroonError::DeserializationError(String::from(
+                "Found i and i64 fields",
+            )));
         }
         if ser.l.is_some() && ser.l64.is_some() {
-            return Err(MacaroonError::DeserializationError(String::from("Found l and l64 fields")));
+            return Err(MacaroonError::DeserializationError(String::from(
+                "Found l and l64 fields",
+            )));
         }
         if ser.s.is_some() && ser.s64.is_some() {
-            return Err(MacaroonError::DeserializationError(String::from("Found s and s64 fields")));
+            return Err(MacaroonError::DeserializationError(String::from(
+                "Found s and s64 fields",
+            )));
         }
 
         let mut builder: MacaroonBuilder = MacaroonBuilder::new();
         builder.set_identifier(&match ser.i {
             Some(id) => id,
-            None => {
-                match ser.i64 {
-                    Some(id) => String::from_utf8(base64::decode_config(&id, base64::URL_SAFE)?)?,
-                    None => {
-                        return Err(MacaroonError::DeserializationError(String::from("No identifier \
-                                                                                     found")))
-                    }
+            None => match ser.i64 {
+                Some(id) => String::from_utf8(base64::decode_config(&id, base64::URL_SAFE)?)?,
+                None => {
+                    return Err(MacaroonError::DeserializationError(String::from(
+                        "No identifier \
+                         found",
+                    )))
                 }
-            }
+            },
         });
 
         match ser.l {
             Some(loc) => builder.set_location(&loc),
             None => {
                 if let Some(loc) = ser.l64 {
-                    builder.set_location(&String::from_utf8(base64::decode_config(&loc, base64::URL_SAFE)?)?)
+                    builder.set_location(&String::from_utf8(base64::decode_config(
+                        &loc,
+                        base64::URL_SAFE,
+                    )?)?)
                 }
             }
         };
 
         builder.set_signature(&match ser.s {
             Some(sig) => sig,
-            None => {
-                match ser.s64 {
-                    Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
-                    None => {
-                        return Err(MacaroonError::DeserializationError(String::from("No signature \
-                                                                                     found")))
-                    }
+            None => match ser.s64 {
+                Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
+                None => {
+                    return Err(MacaroonError::DeserializationError(String::from(
+                        "No signature \
+                         found",
+                    )))
                 }
-            }
+            },
         });
 
         let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
             caveat_builder.add_id(match c.i {
                 Some(id) => id,
-                None => {
-                    match c.i64 {
-                        Some(id64) => String::from_utf8(base64::decode_config(&id64, base64::URL_SAFE)?)?,
-                        None => {
-                            return Err(MacaroonError::DeserializationError(String::from("No caveat \
-                                                                                         ID found")))
-                        }
+                None => match c.i64 {
+                    Some(id64) => {
+                        String::from_utf8(base64::decode_config(&id64, base64::URL_SAFE)?)?
                     }
-                }
+                    None => {
+                        return Err(MacaroonError::DeserializationError(String::from(
+                            "No caveat \
+                             ID found",
+                        )))
+                    }
+                },
             });
             match c.l {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     if let Some(loc64) = c.l64 {
-                        caveat_builder.add_location(String::from_utf8(base64::decode_config(&loc64, base64::URL_SAFE)?)?)
+                        caveat_builder.add_location(String::from_utf8(base64::decode_config(
+                            &loc64,
+                            base64::URL_SAFE,
+                        )?)?)
                     }
                 }
             };
@@ -149,7 +164,8 @@ impl Macaroon {
                 Some(vid) => caveat_builder.add_verifier_id(vid),
                 None => {
                     if let Some(vid64) = c.v64 {
-                        caveat_builder.add_verifier_id(base64::decode_config(&vid64, base64::URL_SAFE)?)
+                        caveat_builder
+                            .add_verifier_id(base64::decode_config(&vid64, base64::URL_SAFE)?)
                     }
                 }
             };
@@ -162,7 +178,8 @@ impl Macaroon {
 }
 
 pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
-    let serialized: String = serde_json::to_string(&V2JSerialization::from_macaroon(macaroon.clone())?)?;
+    let serialized: String =
+        serde_json::to_string(&V2JSerialization::from_macaroon(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
@@ -173,16 +190,17 @@ pub fn deserialize_v2j(data: &[u8]) -> Result<Macaroon, MacaroonError> {
 
 #[cfg(test)]
 mod tests {
-    use Macaroon;
     use super::super::Format;
+    use Macaroon;
 
     const SERIALIZED_V2J: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
-                                          \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
-                                          alice\"}],\"s64\":\
-                                          \"S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw\"}";
-    const SIGNATURE_V2: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
-                                    238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169, 60,
-                                    141, 14, 18, 94, 252];
+                                  \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
+                                  alice\"}],\"s64\":\
+                                  \"S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw\"}";
+    const SIGNATURE_V2: [u8; 32] = [
+        75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155, 5, 177, 88, 134,
+        218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
+    ];
 
     #[test]
     fn test_deserialize_v2j() {
@@ -191,10 +209,14 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
-        assert_eq!("account = 3735928559",
-                   macaroon.caveats()[0].as_first_party().unwrap().predicate());
-        assert_eq!("user = alice",
-                   macaroon.caveats()[1].as_first_party().unwrap().predicate());
+        assert_eq!(
+            "account = 3735928559",
+            macaroon.caveats()[0].as_first_party().unwrap().predicate()
+        );
+        assert_eq!(
+            "user = alice",
+            macaroon.caveats()[1].as_first_party().unwrap().predicate()
+        );
         assert_eq!(SIGNATURE_V2.to_vec(), macaroon.signature());
     }
 

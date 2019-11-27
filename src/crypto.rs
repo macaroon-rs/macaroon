@@ -1,5 +1,5 @@
 use error::MacaroonError;
-use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
+use sodiumoxide::crypto::auth::hmacsha256::{self, Key, Tag};
 use sodiumoxide::crypto::secretbox;
 
 const KEY_GENERATOR: &[u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
@@ -48,7 +48,10 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
     match secretbox::open(ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
         Ok(plaintext) => Ok(plaintext),
         Err(()) => {
-            error!("crypto::decrypt: Unknown decryption error decrypting {:?}", data);
+            error!(
+                "crypto::decrypt: Unknown decryption error decrypting {:?}",
+                data
+            );
             Err(MacaroonError::DecryptionError("Unknown decryption error"))
         }
     }
@@ -56,7 +59,7 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
 
 #[cfg(test)]
 mod test {
-    use super::{encrypt, decrypt};
+    use super::{decrypt, encrypt};
 
     #[test]
     fn test_encrypt_decrypt() {

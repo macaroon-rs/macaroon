@@ -1,7 +1,7 @@
+use caveat;
 use crypto;
 use error::MacaroonError;
 use Macaroon;
-use caveat;
 
 /// Type of callback for `Verifier::satisfy_general()`
 pub type VerifierCallback = fn(&str) -> bool;
@@ -42,7 +42,8 @@ impl Verifier {
 
     /// Adds discharge macaroons to the verifier
     pub fn add_discharge_macaroons(&mut self, discharge_macaroons: &[Macaroon]) {
-        self.discharge_macaroons.extend(discharge_macaroons.to_vec());
+        self.discharge_macaroons
+            .extend(discharge_macaroons.to_vec());
     }
 
     pub fn set_signature(&mut self, signature: [u8; 32]) {
@@ -50,7 +51,8 @@ impl Verifier {
     }
 
     pub fn update_signature<F>(&mut self, generator: F)
-        where F: Fn(&[u8; 32]) -> [u8; 32]
+    where
+        F: Fn(&[u8; 32]) -> [u8; 32],
     {
         self.signature = generator(&self.signature);
     }
@@ -61,7 +63,11 @@ impl Verifier {
             return true;
         }
 
-        count = self.callbacks.iter().filter(|&callback| callback(predicate)).count();
+        count = self
+            .callbacks
+            .iter()
+            .filter(|&callback| callback(predicate))
+            .count();
         if count > 0 {
             return true;
         }
@@ -69,19 +75,22 @@ impl Verifier {
         false
     }
 
-    pub fn verify_caveat(&mut self,
-                         caveat: &caveat::ThirdPartyCaveat,
-                         macaroon: &Macaroon)
-                         -> Result<bool, MacaroonError> {
+    pub fn verify_caveat(
+        &mut self,
+        caveat: &caveat::ThirdPartyCaveat,
+        macaroon: &Macaroon,
+    ) -> Result<bool, MacaroonError> {
         let dm = self.discharge_macaroons.clone();
         let dm_opt = dm.iter().find(|dm| *dm.identifier() == caveat.id());
         match dm_opt {
             Some(dm) => {
                 if self.id_chain.iter().any(|id| id == dm.identifier()) {
-                    info!("Verifier::verify_caveat: caveat verification loop - id {:?} found in \
-                           id chain {:?}",
-                          dm.identifier(),
-                          self.id_chain);
+                    info!(
+                        "Verifier::verify_caveat: caveat verification loop - id {:?} found in \
+                         id chain {:?}",
+                        dm.identifier(),
+                        self.id_chain
+                    );
                     return Ok(false);
                 }
                 self.id_chain.push(dm.identifier().clone());
@@ -89,9 +98,11 @@ impl Verifier {
                 dm.verify_as_discharge(self, macaroon, key.as_slice())
             }
             None => {
-                info!("Verifier::verify_caveat: No discharge macaroon found matching caveat id \
-                       {:?}",
-                      caveat.id());
+                info!(
+                    "Verifier::verify_caveat: No discharge macaroon found matching caveat id \
+                     {:?}",
+                    caveat.id()
+                );
                 Ok(false)
             }
         }
@@ -102,9 +113,9 @@ impl Verifier {
 mod tests {
     extern crate time;
 
+    use super::Verifier;
     use crypto;
     use Macaroon;
-    use super::Verifier;
 
     #[test]
     fn test_simple_macaroon() {
@@ -184,12 +195,8 @@ mod tests {
         }
 
         match time::strptime(&caveat[7..], "%Y-%m-%dT%H:%M") {
-            Ok(compare) => {
-                time::now() > compare
-            }
-            Err(_) => {
-                false
-            }
+            Ok(compare) => time::now() > compare,
+            Err(_) => false,
         }
     }
 
@@ -240,13 +247,13 @@ mod tests {
     fn test_macaroon_third_party_caveat() {
         let mut macaroon =
             Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
-        macaroon.add_third_party_caveat("http://auth.mybank/",
-                                        b"this is another key",
-                                        "other keyid");
-        let mut discharge = Macaroon::create("http://auth.mybank/",
-                                             b"this is another key",
-                                             "other keyid")
-            .unwrap();
+        macaroon.add_third_party_caveat(
+            "http://auth.mybank/",
+            b"this is another key",
+            "other keyid",
+        );
+        let mut discharge =
+            Macaroon::create("http://auth.mybank/", b"this is another key", "other keyid").unwrap();
         discharge.add_first_party_caveat("time > 2010-01-01T00:00");
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
@@ -260,16 +267,18 @@ mod tests {
     fn test_macaroon_third_party_caveat_with_cycle() {
         let mut macaroon =
             Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
-        macaroon.add_third_party_caveat("http://auth.mybank/",
-                                        b"this is another key",
-                                        "other keyid");
-        let mut discharge = Macaroon::create("http://auth.mybank/",
-                                             b"this is another key",
-                                             "other keyid")
-            .unwrap();
-        discharge.add_third_party_caveat("http://auth.mybank/",
-                                         b"this is another key",
-                                         "other keyid");
+        macaroon.add_third_party_caveat(
+            "http://auth.mybank/",
+            b"this is another key",
+            "other keyid",
+        );
+        let mut discharge =
+            Macaroon::create("http://auth.mybank/", b"this is another key", "other keyid").unwrap();
+        discharge.add_third_party_caveat(
+            "http://auth.mybank/",
+            b"this is another key",
+            "other keyid",
+        );
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
         verifier.satisfy_general(after_time_verifier);
