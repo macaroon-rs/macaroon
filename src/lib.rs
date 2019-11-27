@@ -92,18 +92,11 @@
 //! - verification of first-party caveats either via exact string match or passed-in function
 //! - verification of third-party caveats using discharge macaroons (including ones that themselves have embedded third-party caveats)
 //! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
-
-#![feature(proc_macro)]
-#![feature(try_from)]
-#![feature(box_syntax, box_patterns)]
-
 #[macro_use]
 extern crate log;
 extern crate rustc_serialize as serialize;
 extern crate sodiumoxide;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate serde_json;
 
 mod caveat;
@@ -123,10 +116,9 @@ use caveat::{Caveat, CaveatType};
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
 pub fn initialize() -> Result<(), MacaroonError> {
-    if sodiumoxide::init() {
-        Ok(())
-    } else {
-        Err(MacaroonError::InitializationError)
+    match sodiumoxide::init() {
+        Ok(_) => return Ok(()),
+        Err(_) => return Err(MacaroonError::InitializationError)
     }
 }
 
@@ -135,7 +127,7 @@ pub struct Macaroon {
     identifier: String,
     location: Option<String>,
     signature: [u8; 32],
-    caveats: Vec<Box<Caveat>>,
+    caveats: Vec<Box<dyn Caveat>>,
 }
 
 impl Macaroon {
@@ -174,7 +166,7 @@ impl Macaroon {
         &self.signature
     }
 
-    fn caveats(&self) -> &Vec<Box<Caveat>> {
+    fn caveats(&self) -> &Vec<Box<dyn Caveat>> {
         &self.caveats
     }
 
@@ -229,7 +221,7 @@ impl Macaroon {
     pub fn add_first_party_caveat<'r>(&mut self, predicate: &'r str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
-        self.caveats.push(box caveat);
+        self.caveats.push(Box::new(caveat));
         debug!("Macaroon::add_first_party_caveat: {:?}", self);
     }
 
@@ -242,7 +234,7 @@ impl Macaroon {
         let vid: Vec<u8> = crypto::encrypt(self.signature, &derived_key);
         let caveat: caveat::ThirdPartyCaveat = caveat::new_third_party(id, vid, location);
         self.signature = caveat.sign(&self.signature);
-        self.caveats.push(box caveat);
+        self.caveats.push(Box::new(caveat));
         debug!("Macaroon::add_third_party_caveat: {:?}", self);
     }
 
@@ -330,7 +322,7 @@ impl Macaroon {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2j::deserialize_v2j(data)?,
             '\x02' => serialization::v2::deserialize_v2(data)?,
-            'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '/' | '_' => {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '/' | '_' => {
                 serialization::v1::deserialize_v1(data)?
             }
             _ => return Err(MacaroonError::UnknownSerialization),

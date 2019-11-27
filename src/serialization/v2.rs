@@ -90,7 +90,7 @@ impl<'r> V2Deserializer<'r> {
     }
 
     pub fn get_eos(&mut self) -> Result<u8, MacaroonError> {
-        let eos = try!(self.get_byte());
+        let eos = self.get_byte()?;
         match eos {
             EOS_V2 => Ok(eos),
             _ => Err(MacaroonError::DeserializationError(String::from("Expected EOS"))),
@@ -98,7 +98,7 @@ impl<'r> V2Deserializer<'r> {
     }
 
     pub fn get_field(&mut self) -> Result<Vec<u8>, MacaroonError> {
-        let size: usize = try!(self.get_field_size());
+        let size: usize = self.get_field_size()?;
         if size + self.index > self.data.len() {
             return Err(MacaroonError::DeserializationError(String::from("Unexpected end of \
                                                                          field")));
@@ -114,7 +114,7 @@ impl<'r> V2Deserializer<'r> {
         let mut shift: usize = 0;
         let mut byte: u8;
         while shift <= 63 {
-            byte = try!(self.get_byte());
+            byte = self.get_byte()?;
             if byte & 128 != 0 {
                 size |= ((byte & 127) << shift) as usize;
             } else {
@@ -130,22 +130,22 @@ impl<'r> V2Deserializer<'r> {
 pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: V2Deserializer = V2Deserializer::new(data);
-    if try!(deserializer.get_byte()) != 2 {
+    if deserializer.get_byte()? != 2 {
         return Err(MacaroonError::DeserializationError(String::from("Wrong version number")));
     }
-    let mut tag: u8 = try!(deserializer.get_tag());
+    let mut tag: u8 = deserializer.get_tag()?;
     match tag {
-        LOCATION_V2 => builder.set_location(&String::from_utf8(try!(deserializer.get_field()))?),
+        LOCATION_V2 => builder.set_location(&String::from_utf8(deserializer.get_field()?)?),
         IDENTIFIER_V2 => {
-            builder.set_identifier(&String::from_utf8(try!(deserializer.get_field()))?)
+            builder.set_identifier(&String::from_utf8(deserializer.get_field()?)?)
         }
         _ => return Err(MacaroonError::DeserializationError(String::from("Identifier not found"))),
     }
     if builder.has_location() {
-        tag = try!(deserializer.get_tag());
+        tag = deserializer.get_tag()?;
         match tag {
             IDENTIFIER_V2 => {
-                builder.set_identifier(&String::from_utf8(try!(deserializer.get_field()))?);
+                builder.set_identifier(&String::from_utf8(deserializer.get_field()?)?);
             }
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Identifier not \
@@ -153,17 +153,17 @@ pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
             }
         }
     }
-    try!(deserializer.get_eos());
-    tag = try!(deserializer.get_tag());
+    deserializer.get_eos()?;
+    tag = deserializer.get_tag()?;
     while tag != EOS_V2 {
         let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         match tag {
             LOCATION_V2 => {
-                let field: Vec<u8> = try!(deserializer.get_field());
+                let field: Vec<u8> = deserializer.get_field()?;
                 caveat_builder.add_location(String::from_utf8(field)?);
             }
             IDENTIFIER_V2 => {
-                caveat_builder.add_id(String::from_utf8(try!(deserializer.get_field()))?)
+                caveat_builder.add_id(String::from_utf8(deserializer.get_field()?)?)
             }
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Caveat identifier \
@@ -171,10 +171,10 @@ pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
             }
         }
         if caveat_builder.has_location() {
-            tag = try!(deserializer.get_tag());
+            tag = deserializer.get_tag()?;
             match tag {
                 IDENTIFIER_V2 => {
-                    let field: Vec<u8> = try!(deserializer.get_field());
+                    let field: Vec<u8> = deserializer.get_field()?;
                     caveat_builder.add_id(String::from_utf8(field)?);
                 }
                 _ => {
@@ -183,18 +183,18 @@ pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
                 }
             }
         }
-        tag = try!(deserializer.get_tag());
+        tag = deserializer.get_tag()?;
         match tag {
             VID_V2 => {
-                let field: Vec<u8> = try!(deserializer.get_field());
+                let field: Vec<u8> = deserializer.get_field()?;
                 caveat_builder.add_verifier_id(field);
                 builder.add_caveat(caveat_builder.build()?);
-                try!(deserializer.get_eos());
-                tag = try!(deserializer.get_tag());
+                deserializer.get_eos()?;
+                tag = deserializer.get_tag()?;
             }
             EOS_V2 => {
                 builder.add_caveat(caveat_builder.build()?);
-                tag = try!(deserializer.get_tag());
+                tag = deserializer.get_tag()?;
             }
             _ => {
                 return Err(MacaroonError::DeserializationError(String::from("Unexpected caveat \
@@ -202,9 +202,9 @@ pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
             }
         }
     }
-    tag = try!(deserializer.get_tag());
+    tag = deserializer.get_tag()?;
     if tag == SIGNATURE_V2 {
-        let sig: Vec<u8> = try!(deserializer.get_field());
+        let sig: Vec<u8> = deserializer.get_field()?;
         if sig.len() != 32 {
             return Err(MacaroonError::DeserializationError(String::from("Bad signature length")));
         }
@@ -247,8 +247,8 @@ mod tests {
                                      238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
                                      60, 141, 14, 18, 94, 252];
         let mut builder = MacaroonBuilder::new();
-        builder.add_caveat(box caveat::new_first_party("account = 3735928559"));
-        builder.add_caveat(box caveat::new_first_party("user = alice"));
+        builder.add_caveat(Box::new(caveat::new_first_party("account = 3735928559")));
+        builder.add_caveat(Box::new(caveat::new_first_party("user = alice")));
         builder.set_location("http://example.org/");
         builder.set_identifier("keyid");
         builder.set_signature(&SIGNATURE);

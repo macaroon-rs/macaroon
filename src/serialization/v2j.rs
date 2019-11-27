@@ -1,5 +1,6 @@
 use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
+use serde::{Serialize, Deserialize};
 use std::convert::TryFrom;
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
