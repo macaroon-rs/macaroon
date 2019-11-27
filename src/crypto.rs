@@ -36,7 +36,7 @@ pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
 }
 
 pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
-    if data.len() <= secretbox::NONCEBYTES {
+    if data.len() <= secretbox::NONCEBYTES + secretbox::MACBYTES {
         error!("crypto::decrypt: Encrypted data {:?} too short", data);
         return Err(MacaroonError::DecryptionError("Encrypted data too short"));
     }
