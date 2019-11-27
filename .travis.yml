@@ -2,9 +2,6 @@ language: rust
 rust:
   - stable
   - nightly
-install:
-- sudo add-apt-repository -y ppa:chris-lea/libsodium
-- sudo apt-get update && sudo apt-get install libsodium-dev
 matrix:
   allow_failures:
     - rust: stable
