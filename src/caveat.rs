@@ -160,7 +160,7 @@ pub fn new_first_party(predicate: &str) -> FirstPartyCaveat {
 pub fn new_third_party(id: &str, verifier_id: Vec<u8>, location: &str) -> ThirdPartyCaveat {
     ThirdPartyCaveat {
         id: String::from(id),
-        verifier_id: verifier_id,
+        verifier_id,
         location: String::from(location),
     }
 }

@@ -46,7 +46,7 @@ impl V2JSerialization {
                 CaveatType::FirstParty => {
                     let first_party = caveat.as_first_party().unwrap();
                     let serialized_caveat: CaveatV2J = CaveatV2J {
-                        i: Some(String::from(first_party.predicate())),
+                        i: Some(first_party.predicate()),
                         i64: None,
                         l: None,
                         l64: None,
@@ -58,9 +58,9 @@ impl V2JSerialization {
                 CaveatType::ThirdParty => {
                     let third_party = caveat.as_third_party().unwrap();
                     let serialized_caveat: CaveatV2J = CaveatV2J {
-                        i: Some(String::from(third_party.id())),
+                        i: Some(third_party.id()),
                         i64: None,
-                        l: Some(String::from(third_party.location())),
+                        l: Some(third_party.location()),
                         l64: None,
                         v: Some(third_party.verifier_id()),
                         v64: None,
@@ -176,7 +176,7 @@ mod tests {
     use Macaroon;
     use super::super::Format;
 
-    const SERIALIZED_V2J: &'static str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
+    const SERIALIZED_V2J: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                           \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
                                           alice\"}],\"s64\":\
                                           \"S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw\"}";

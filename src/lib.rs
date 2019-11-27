@@ -117,8 +117,8 @@ use caveat::{Caveat, CaveatType};
 /// if you don't.
 pub fn initialize() -> Result<(), MacaroonError> {
     match sodiumoxide::init() {
-        Ok(_) => return Ok(()),
-        Err(_) => return Err(MacaroonError::InitializationError)
+        Ok(_) => Ok(()),
+        Err(_) => Err(MacaroonError::InitializationError)
     }
 }
 
@@ -367,7 +367,7 @@ mod tests {
         let mut macaroon = Macaroon::create("location", key, "identifier").unwrap();
         macaroon.add_first_party_caveat("predicate");
         assert_eq!(1, macaroon.caveats.len());
-        let ref caveat = macaroon.caveats[0];
+        let caveat = &macaroon.caveats[0];
         assert_eq!("predicate", caveat.as_first_party().unwrap().predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
         assert_eq!(*caveat.as_first_party().unwrap(),

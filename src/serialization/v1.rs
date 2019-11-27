@@ -5,12 +5,12 @@ use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 
 // Version 1 fields
-const LOCATION: &'static str = "location";
-const IDENTIFIER: &'static str = "identifier";
-const SIGNATURE: &'static str = "signature";
-const CID: &'static str = "cid";
-const VID: &'static str = "vid";
-const CL: &'static str = "cl";
+const LOCATION: &str = "location";
+const IDENTIFIER: &str = "identifier";
+const SIGNATURE: &str = "signature";
+const CID: &str = "cid";
+const VID: &str = "vid";
+const CL: &str = "cl";
 
 const HEADER_SIZE: usize = 4;
 
@@ -77,7 +77,7 @@ struct Packet {
 fn deserialize_as_packets(data: &[u8],
                           mut packets: Vec<Packet>)
                           -> Result<Vec<Packet>, MacaroonError> {
-    if data.len() == 0 {
+    if data.is_empty() {
         return Ok(packets);
     }
     let hex: &str = str::from_utf8(&data[..4])?;
@@ -130,15 +130,15 @@ pub fn deserialize_v1(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
                 if caveat_builder.has_id() {
                     builder.add_caveat(caveat_builder.build()?);
                     caveat_builder = CaveatBuilder::new();
-                    caveat_builder.add_id(String::from(String::from_utf8(packet.value)?));
+                    caveat_builder.add_id(String::from_utf8(packet.value)?);
                 } else {
-                    caveat_builder.add_id(String::from(String::from_utf8(packet.value)?));
+                    caveat_builder.add_id(String::from_utf8(packet.value)?);
                 }
             }
             VID => {
                 caveat_builder.add_verifier_id(packet.value);
             }
-            CL => caveat_builder.add_location(String::from(String::from_utf8(packet.value)?)),
+            CL => caveat_builder.add_location(String::from_utf8(packet.value)?),
             _ => return Err(MacaroonError::DeserializationError(String::from("Unknown key"))),
         };
     }

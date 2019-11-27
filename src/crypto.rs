@@ -2,7 +2,7 @@ use error::MacaroonError;
 use sodiumoxide::crypto::auth::hmacsha256::{self, Tag, Key};
 use sodiumoxide::crypto::secretbox;
 
-const KEY_GENERATOR: &'static [u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
+const KEY_GENERATOR: &[u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
 
 pub fn generate_derived_key(key: &[u8]) -> [u8; 32] {
     hmac(KEY_GENERATOR, key)

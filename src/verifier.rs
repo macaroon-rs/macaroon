@@ -111,7 +111,7 @@ mod tests {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -120,7 +120,7 @@ mod tests {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
-        let key = crypto::generate_derived_key("this is not the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is not the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -130,7 +130,7 @@ mod tests {
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
         verifier.satisfy_exact("account = 3735928559");
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -140,7 +140,7 @@ mod tests {
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
         verifier.satisfy_exact("account = 0000000000");
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -149,7 +149,7 @@ mod tests {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -160,7 +160,7 @@ mod tests {
         let mut verifier = Verifier::new();
         verifier.satisfy_exact("account = 3735928559");
         verifier.satisfy_exact("user = alice");
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -170,11 +170,11 @@ mod tests {
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         let mut verifier = Verifier::new();
         verifier.satisfy_exact("account = 3735928559");
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
         let mut verifier = Verifier::new();
         verifier.satisfy_exact("user = alice");
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -185,10 +185,10 @@ mod tests {
 
         match time::strptime(&caveat[7..], "%Y-%m-%dT%H:%M") {
             Ok(compare) => {
-                return time::now() > compare;
+                time::now() > compare
             }
             Err(_) => {
-                return false;
+                false
             }
         }
     }
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_macaroon_two_exact_and_one_general_caveat() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+            Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
         macaroon.add_first_party_caveat("account = 3735928559");
         macaroon.add_first_party_caveat("user = alice");
         macaroon.add_first_party_caveat("time > 2010-01-01T00:00");
@@ -204,14 +204,14 @@ mod tests {
         verifier.satisfy_exact("account = 3735928559");
         verifier.satisfy_exact("user = alice");
         verifier.satisfy_general(after_time_verifier);
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(macaroon.verify(&key, &mut verifier).unwrap());
     }
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_fails_general() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+            Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
         macaroon.add_first_party_caveat("account = 3735928559");
         macaroon.add_first_party_caveat("user = alice");
         macaroon.add_first_party_caveat("time > 3010-01-01T00:00");
@@ -219,7 +219,7 @@ mod tests {
         verifier.satisfy_exact("account = 3735928559");
         verifier.satisfy_exact("user = alice");
         verifier.satisfy_general(after_time_verifier);
-        let key = crypto::generate_derived_key("this is the key".as_bytes());
+        let key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&key, &mut verifier).unwrap());
     }
 
@@ -239,42 +239,42 @@ mod tests {
     #[test]
     fn test_macaroon_third_party_caveat() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+            Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
         macaroon.add_third_party_caveat("http://auth.mybank/",
-                                        "this is another key".as_bytes(),
+                                        b"this is another key",
                                         "other keyid");
         let mut discharge = Macaroon::create("http://auth.mybank/",
-                                             "this is another key".as_bytes(),
+                                             b"this is another key",
                                              "other keyid")
             .unwrap();
         discharge.add_first_party_caveat("time > 2010-01-01T00:00");
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
         verifier.satisfy_general(after_time_verifier);
-        verifier.add_discharge_macaroons(&vec![discharge]);
-        let root_key = crypto::generate_derived_key("this is the key".as_bytes());
+        verifier.add_discharge_macaroons(&[discharge]);
+        let root_key = crypto::generate_derived_key(b"this is the key");
         assert!(macaroon.verify(&root_key, &mut verifier).unwrap());
     }
 
     #[test]
     fn test_macaroon_third_party_caveat_with_cycle() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", "this is the key".as_bytes(), "keyid").unwrap();
+            Macaroon::create("http://example.org/", b"this is the key", "keyid").unwrap();
         macaroon.add_third_party_caveat("http://auth.mybank/",
-                                        "this is another key".as_bytes(),
+                                        b"this is another key",
                                         "other keyid");
         let mut discharge = Macaroon::create("http://auth.mybank/",
-                                             "this is another key".as_bytes(),
+                                             b"this is another key",
                                              "other keyid")
             .unwrap();
         discharge.add_third_party_caveat("http://auth.mybank/",
-                                         "this is another key".as_bytes(),
+                                         b"this is another key",
                                          "other keyid");
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::new();
         verifier.satisfy_general(after_time_verifier);
-        verifier.add_discharge_macaroons(&vec![discharge]);
-        let root_key = crypto::generate_derived_key("this is the key".as_bytes());
+        verifier.add_discharge_macaroons(&[discharge]);
+        let root_key = crypto::generate_derived_key(b"this is the key");
         assert!(!macaroon.verify(&root_key, &mut verifier).unwrap());
     }
 }

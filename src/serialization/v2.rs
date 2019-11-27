@@ -71,7 +71,7 @@ struct V2Deserializer<'r> {
 impl<'r> V2Deserializer<'r> {
     pub fn new(data: &[u8]) -> V2Deserializer {
         V2Deserializer {
-            data: data,
+            data,
             index: 0,
         }
     }
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_v2() {
-        const SERIALIZED: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
+        const SERIALIZED: &str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
         const SIGNATURE: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
                                      238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
                                      60, 141, 14, 18, 94, 252];
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_serialize_v2() {
-        const SERIALIZED: &'static str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
+        const SERIALIZED: &str = "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A==";
         const SIGNATURE: [u8; 32] = [75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148,
                                      238, 155, 5, 177, 88, 134, 218, 11, 168, 94, 140, 66, 169,
                                      60, 141, 14, 18, 94, 252];
