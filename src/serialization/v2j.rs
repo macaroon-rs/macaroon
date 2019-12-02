@@ -1,6 +1,6 @@
 use serde_json;
 use serialize::base64::{STANDARD, ToBase64, FromBase64};
-use std::convert::TryFrom;
+use serde::{Serialize, Deserialize};
 use std::str;
 use caveat::{CaveatBuilder, CaveatType};
 use Macaroon;
@@ -29,9 +29,9 @@ struct V2JSerialization {
     s64: Option<String>,
 }
 
-impl TryFrom<Macaroon> for V2JSerialization {
-    type Error = MacaroonError;
-    fn try_from(macaroon: Macaroon) -> Result<Self, Self::Error> {
+impl V2JSerialization {
+
+    fn from_macaroon(macaroon: Macaroon) -> Result<V2JSerialization, MacaroonError> {
         let mut serialized: V2JSerialization = V2JSerialization {
             v: 2,
             i: Some(macaroon.identifier().clone()),
@@ -75,9 +75,9 @@ impl TryFrom<Macaroon> for V2JSerialization {
     }
 }
 
-impl TryFrom<V2JSerialization> for Macaroon {
-    type Error = MacaroonError;
-    fn try_from(ser: V2JSerialization) -> Result<Self, Self::Error> {
+impl Macaroon {
+
+    fn from_v2j(ser: V2JSerialization) -> Result<Macaroon, MacaroonError> {
         if ser.i.is_some() && ser.i64.is_some() {
             return Err(MacaroonError::DeserializationError(String::from("Found i and i64 fields")));
         }
@@ -163,13 +163,13 @@ impl TryFrom<V2JSerialization> for Macaroon {
 }
 
 pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
-    let serialized: String = serde_json::to_string(&V2JSerialization::try_from(macaroon.clone())?)?;
+    let serialized: String = serde_json::to_string(&V2JSerialization::from_macaroon(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
 pub fn deserialize_v2j(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     let v2j: V2JSerialization = serde_json::from_slice(data)?;
-    Macaroon::try_from(v2j)
+    Macaroon::from_v2j(v2j)
 }
 
 #[cfg(test)]

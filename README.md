@@ -42,17 +42,6 @@ The macaroon is considered authorized only if all its caveats are authorized by 
 - Creation of discharge macaroons
 - Verification of both first- and third-party caveats (the latter using discharge macaroons)
 
-## Requirements
-
-For now, you need to use the nightly build of Rust, because of `serde_derive`'s dependence on
-`#[proc_macro_derive]`, which is experimental (but should be merged into stable soon).
-
-To use the nightly compiler:
-
-```bash
-$ rustup default nightly
-```
-
 ## Usage
 In your `Cargo.toml`:
 ```

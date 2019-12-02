@@ -84,7 +84,7 @@ fn deserialize_as_packets(data: &[u8],
     let hex: &str = str::from_utf8(&data[..4])?;
     let size: usize = usize::from_str_radix(hex, 16)?;
     let packet_data = &data[4..size];
-    let index = try!(split_index(packet_data));
+    let index = split_index(packet_data)?;
     let (key_slice, value_slice) = packet_data.split_at(index);
     packets.push(Packet {
         key: String::from_utf8(key_slice.to_vec())?,
@@ -102,10 +102,10 @@ fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
 }
 
 pub fn deserialize_v1(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
-    let data = try!(base64_decode(&String::from_utf8(base64.to_vec())?));
+    let data = base64_decode(&String::from_utf8(base64.to_vec())?)?;
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
-    for packet in try!(deserialize_as_packets(data.as_slice(), Vec::new())) {
+    for packet in deserialize_as_packets(data.as_slice(), Vec::new())? {
         match packet.key.as_str() {
             LOCATION => {
                 builder.set_location(&String::from_utf8(packet.value)?);

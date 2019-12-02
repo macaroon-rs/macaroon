@@ -7,7 +7,7 @@ pub struct MacaroonBuilder {
     identifier: String,
     location: Option<String>,
     signature: [u8; 32],
-    caveats: Vec<Box<Caveat>>,
+    caveats: Vec<Box<dyn Caveat>>,
 }
 
 impl MacaroonBuilder {
@@ -31,7 +31,7 @@ impl MacaroonBuilder {
         self.signature.clone_from_slice(signature);
     }
 
-    pub fn add_caveat(&mut self, caveat: Box<Caveat>) {
+    pub fn add_caveat(&mut self, caveat: Box<dyn Caveat>) {
         self.caveats.push(caveat);
     }
 
