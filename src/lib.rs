@@ -217,7 +217,7 @@ impl Macaroon {
     /// DSL which can be verified either by exact string match,
     /// or by using a function to parse the string and validate it
     /// (see Verifier for more info).
-    pub fn add_first_party_caveat<'r>(&mut self, predicate: &'r str) {
+    pub fn add_first_party_caveat(&mut self, predicate: &str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(Box::new(caveat));
