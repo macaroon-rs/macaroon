@@ -1,0 +1,25 @@
+name: build_and_test
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      # TODO: this is super naive, find a way to actually run only on semver tags
+      - v*
+  pull_request: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Run clippy
+        run: cargo clippy -- -Dwarnings
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run: cargo test --verbose
