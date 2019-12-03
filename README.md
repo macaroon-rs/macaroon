@@ -67,14 +67,14 @@ let mut macaroon = match Macaroon::create("location", b"key", "id") {
 // Add our first-party caveat. We say that only someone with account 12345678
 // is authorized to access whatever the macaroon is protecting
 // Note that we can add however many of these we want, with different predicates
-macaroon.add_first_party_caveat("account = 12345678");
+macaroon.add_first_party_caveat("account = 12345678".into());
 
 // Now we verify the macaroon
 // First we create the verifier
 let mut verifier = Verifier::new();
 
 // We assert that the account number is "12345678"
-verifier.satisfy_exact("account = 12345678");
+verifier.satisfy_exact("account = 12345678".into());
 
 // Now we verify the macaroon. It should return `Ok(true)` if the user is authorized
 match macaroon.verify(b"key", &mut verifier) {
@@ -85,19 +85,19 @@ match macaroon.verify(b"key", &mut verifier) {
 
 // Now, let's add a third-party caveat, which just says that we need our third party
 // to authorize this for us as well.
-macaroon.add_third_party_caveat("https://auth.mybank", b"different key", "caveat id");
+macaroon.add_third_party_caveat("https://auth.mybank", b"different key", "caveat id".into());
 
 // When we're ready to verify a third-party caveat, we use the location
 // (in this case, "https://auth.mybank") to retrieve the discharge macaroons we use to verify.
 // These would be created by the third party like so:
 let mut discharge = match Macaroon::create("http://auth.mybank/",
                                            b"different key",
-                                           "caveat id") {
+                                           "caveat id".into()) {
     Ok(discharge) => discharge,
     Err(error) => panic!("Error creating discharge macaroon: {:?}", error),
 };
 // And this is the criterion the third party requires for authorization
-discharge.add_first_party_caveat("account = 12345678");
+discharge.add_first_party_caveat("account = 12345678".into());
 
 // Once we receive the discharge macaroon, we bind it to the original macaroon
 macaroon.bind(&mut discharge);

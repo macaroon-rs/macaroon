@@ -2,6 +2,7 @@ use caveat::{CaveatBuilder, CaveatType};
 use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
+use ByteString;
 use Macaroon;
 
 // Version 1 fields
@@ -46,23 +47,17 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     if let Some(ref location) = macaroon.location() {
         serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
     };
-    serialized.extend(serialize_as_packet(
-        IDENTIFIER,
-        macaroon.identifier().as_bytes(),
-    ));
+    serialized.extend(serialize_as_packet(IDENTIFIER, &macaroon.identifier().0));
     for caveat in macaroon.caveats() {
         match caveat.get_type() {
             CaveatType::FirstParty => {
                 let first_party = caveat.as_first_party().unwrap();
-                serialized.extend(serialize_as_packet(CID, first_party.predicate().as_bytes()));
+                serialized.extend(serialize_as_packet(CID, &first_party.predicate().0));
             }
             CaveatType::ThirdParty => {
                 let third_party = caveat.as_third_party().unwrap();
-                serialized.extend(serialize_as_packet(CID, third_party.id().as_bytes()));
-                serialized.extend(serialize_as_packet(
-                    VID,
-                    third_party.verifier_id().as_slice(),
-                ));
+                serialized.extend(serialize_as_packet(CID, &third_party.id().0));
+                serialized.extend(serialize_as_packet(VID, &third_party.verifier_id().0));
                 serialized.extend(serialize_as_packet(CL, third_party.location().as_bytes()))
             }
         }
@@ -121,7 +116,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
                 builder.set_location(&String::from_utf8(packet.value)?);
             }
             IDENTIFIER => {
-                builder.set_identifier(&String::from_utf8(packet.value)?);
+                builder.set_identifier(ByteString(packet.value));
             }
             SIGNATURE => {
                 if caveat_builder.has_id() {
@@ -145,13 +140,13 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
                 if caveat_builder.has_id() {
                     builder.add_caveat(caveat_builder.build()?);
                     caveat_builder = CaveatBuilder::new();
-                    caveat_builder.add_id(String::from_utf8(packet.value)?);
+                    caveat_builder.add_id(ByteString(packet.value));
                 } else {
-                    caveat_builder.add_id(String::from_utf8(packet.value)?);
+                    caveat_builder.add_id(ByteString(packet.value));
                 }
             }
             VID => {
-                caveat_builder.add_verifier_id(packet.value);
+                caveat_builder.add_verifier_id(ByteString(packet.value));
             }
             CL => caveat_builder.add_location(String::from_utf8(packet.value)?),
             _ => {
@@ -166,6 +161,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
 
 #[cfg(test)]
 mod tests {
+    use ByteString;
     use Macaroon;
 
     #[test]
@@ -178,7 +174,7 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(signature.to_vec(), macaroon.signature());
         serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         signature = [
@@ -188,10 +184,10 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(1, macaroon.caveats().len());
         assert_eq!(
-            "account = 3735928559",
+            ByteString::from("account = 3735928559"),
             macaroon.caveats()[0].as_first_party().unwrap().predicate()
         );
         assert_eq!(signature.to_vec(), macaroon.signature());
@@ -207,15 +203,15 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(signature.to_vec(), macaroon.signature());
         assert_eq!(2, macaroon.caveats().len());
         assert_eq!(
-            "account = 3735928559",
+            ByteString::from("account = 3735928559"),
             macaroon.caveats()[0].as_first_party().unwrap().predicate()
         );
         assert_eq!(
-            "user = alice",
+            ByteString::from("user = alice"),
             macaroon.caveats()[1].as_first_party().unwrap().predicate()
         );
     }
@@ -223,10 +219,10 @@ mod tests {
     #[test]
     fn test_serialize_deserialize() {
         let mut macaroon: Macaroon =
-            Macaroon::create("http://example.org/", b"my key", "keyid").unwrap();
-        macaroon.add_first_party_caveat("account = 3735928559");
-        macaroon.add_first_party_caveat("user = alice");
-        macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat");
+            Macaroon::create("http://example.org/", b"my key", "keyid".into()).unwrap();
+        macaroon.add_first_party_caveat("account = 3735928559".into());
+        macaroon.add_first_party_caveat("user = alice".into());
+        macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat".into());
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let deserialized = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, deserialized);

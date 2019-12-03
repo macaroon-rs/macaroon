@@ -4,23 +4,24 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
+use ByteString;
 use Macaroon;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
     i: Option<String>,
-    i64: Option<String>,
+    i64: Option<ByteString>,
     l: Option<String>,
     l64: Option<String>,
-    v: Option<Vec<u8>>,
-    v64: Option<Vec<u8>>,
+    v: Option<String>,
+    v64: Option<ByteString>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Serialization {
     v: u8,
     i: Option<String>,
-    i64: Option<String>,
+    i64: Option<ByteString>,
     l: Option<String>,
     l64: Option<String>,
     c: Vec<Caveat>,
@@ -32,8 +33,8 @@ impl Serialization {
     fn from_macaroon(macaroon: Macaroon) -> Result<Serialization, MacaroonError> {
         let mut serialized: Serialization = Serialization {
             v: 2,
-            i: Some(macaroon.identifier().clone()),
-            i64: None,
+            i: None,
+            i64: Some(macaroon.identifier().clone()),
             l: macaroon.location().clone(),
             l64: None,
             c: Vec::new(),
@@ -48,8 +49,8 @@ impl Serialization {
                 CaveatType::FirstParty => {
                     let first_party = caveat.as_first_party().unwrap();
                     let serialized_caveat: Caveat = Caveat {
-                        i: Some(first_party.predicate()),
-                        i64: None,
+                        i: None,
+                        i64: Some(first_party.predicate()),
                         l: None,
                         l64: None,
                         v: None,
@@ -60,12 +61,12 @@ impl Serialization {
                 CaveatType::ThirdParty => {
                     let third_party = caveat.as_third_party().unwrap();
                     let serialized_caveat: Caveat = Caveat {
-                        i: Some(third_party.id()),
-                        i64: None,
+                        i: None,
+                        i64: Some(third_party.id()),
                         l: Some(third_party.location()),
                         l64: None,
-                        v: Some(third_party.verifier_id()),
-                        v64: None,
+                        v: None,
+                        v64: Some(third_party.verifier_id()),
                     };
                     serialized.c.push(serialized_caveat);
                 }
@@ -95,10 +96,10 @@ impl Macaroon {
         }
 
         let mut builder: MacaroonBuilder = MacaroonBuilder::new();
-        builder.set_identifier(&match ser.i {
-            Some(id) => id,
+        builder.set_identifier(match ser.i {
+            Some(id) => id.into(),
             None => match ser.i64 {
-                Some(id) => String::from_utf8(base64::decode_config(&id, base64::URL_SAFE)?)?,
+                Some(id) => id,
                 None => {
                     return Err(MacaroonError::DeserializationError(String::from(
                         "No identifier \
@@ -136,11 +137,9 @@ impl Macaroon {
         let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
             caveat_builder.add_id(match c.i {
-                Some(id) => id,
+                Some(id) => id.into(),
                 None => match c.i64 {
-                    Some(id64) => {
-                        String::from_utf8(base64::decode_config(&id64, base64::URL_SAFE)?)?
-                    }
+                    Some(id64) => id64,
                     None => {
                         return Err(MacaroonError::DeserializationError(String::from(
                             "No caveat \
@@ -161,11 +160,10 @@ impl Macaroon {
                 }
             };
             match c.v {
-                Some(vid) => caveat_builder.add_verifier_id(vid),
+                Some(vid) => caveat_builder.add_verifier_id(vid.into()),
                 None => {
                     if let Some(vid64) = c.v64 {
-                        caveat_builder
-                            .add_verifier_id(base64::decode_config(&vid64, base64::URL_SAFE)?)
+                        caveat_builder.add_verifier_id(vid64)
                     }
                 }
             };
@@ -191,6 +189,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use super::super::Format;
+    use ByteString;
     use Macaroon;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
@@ -207,14 +206,14 @@ mod tests {
         let serialized_json: Vec<u8> = SERIALIZED_JSON.as_bytes().to_vec();
         let macaroon = super::deserialize(&serialized_json).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!("keyid", macaroon.identifier());
+        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
         assert_eq!(
-            "account = 3735928559",
+            ByteString::from("account = 3735928559"),
             macaroon.caveats()[0].as_first_party().unwrap().predicate()
         );
         assert_eq!(
-            "user = alice",
+            ByteString::from("user = alice"),
             macaroon.caveats()[1].as_first_party().unwrap().predicate()
         );
         assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
@@ -222,9 +221,10 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon = Macaroon::create("http://example.org/", &SIGNATURE, "keyid").unwrap();
-        macaroon.add_first_party_caveat("user = alice");
-        macaroon.add_third_party_caveat("https://auth.mybank.com/", b"my key", "keyid");
+        let mut macaroon =
+            Macaroon::create("http://example.org/", &SIGNATURE, "keyid".into()).unwrap();
+        macaroon.add_first_party_caveat("user = alice".into());
+        macaroon.add_third_party_caveat("https://auth.mybank.com/", b"my key", "keyid".into());
         let serialized = macaroon.serialize(Format::V2JSON).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);
