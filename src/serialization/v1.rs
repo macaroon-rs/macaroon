@@ -169,7 +169,7 @@ mod tests {
     use Macaroon;
 
     #[test]
-    fn test_deserialize_v1() {
+    fn test_deserialize() {
         let mut serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let mut signature: [u8; 32] = [
             124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223, 233, 178, 78, 120, 94,
@@ -198,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_v1_two_caveats() {
+    fn test_deserialize_two_caveats() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
         let signature = [
             75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155, 5, 177, 88,
@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_deserialize_v1() {
+    fn test_serialize_deserialize() {
         let mut macaroon: Macaroon =
             Macaroon::create("http://example.org/", b"my key", "keyid").unwrap();
         macaroon.add_first_party_caveat("account = 3735928559");

@@ -319,14 +319,14 @@ impl Macaroon {
         match format {
             serialization::Format::V1 => serialization::v1::serialize(self),
             serialization::Format::V2 => serialization::v2::serialize(self),
-            serialization::Format::V2J => serialization::v2j::serialize_json(self),
+            serialization::Format::V2JSON => serialization::v2json::serialize(self),
         }
     }
 
     /// Deserialize a macaroon
     pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
         let macaroon: Macaroon = match data[0] as char {
-            '{' => serialization::v2j::deserialize_json(data)?,
+            '{' => serialization::v2json::deserialize(data)?,
             '\x02' => serialization::v2::deserialize(data)?,
             'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '/' | '_' => {
                 serialization::v1::deserialize(data)?
