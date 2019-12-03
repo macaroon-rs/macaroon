@@ -1,8 +1,8 @@
 use crypto;
 use error::MacaroonError;
-use Macaroon;
 use std::fmt::Debug;
 use verifier::Verifier;
+use Macaroon;
 
 #[derive(PartialEq)]
 pub enum CaveatType {
@@ -66,9 +66,10 @@ impl Caveat for FirstPartyCaveat {
     fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         let result = Ok(verifier.verify_predicate(&self.predicate));
         if let Ok(false) = result {
-            info!("FirstPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
-                  self,
-                  macaroon);
+            info!(
+                "FirstPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
+                self, macaroon
+            );
         }
         verifier.update_signature(|t| self.sign(t));
         result
@@ -124,9 +125,10 @@ impl Caveat for ThirdPartyCaveat {
     fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         let result = verifier.verify_caveat(self, macaroon);
         if let Ok(false) = result {
-            info!("ThirdPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
-                  self,
-                  macaroon);
+            info!(
+                "ThirdPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
+                self, macaroon
+            );
         }
         verifier.update_signature(|t| self.sign(t));
         result
@@ -154,13 +156,15 @@ impl Caveat for ThirdPartyCaveat {
 }
 
 pub fn new_first_party(predicate: &str) -> FirstPartyCaveat {
-    FirstPartyCaveat { predicate: String::from(predicate) }
+    FirstPartyCaveat {
+        predicate: String::from(predicate),
+    }
 }
 
 pub fn new_third_party(id: &str, verifier_id: Vec<u8>, location: &str) -> ThirdPartyCaveat {
     ThirdPartyCaveat {
         id: String::from(id),
-        verifier_id: verifier_id,
+        verifier_id,
         location: String::from(location),
     }
 }
@@ -205,20 +209,26 @@ impl CaveatBuilder {
             return Ok(Box::new(new_first_party(&self.id.unwrap())));
         }
         if self.verifier_id.is_some() && self.location.is_some() {
-            return Ok(Box::new(new_third_party(&self.id.unwrap(),
-                                          self.verifier_id.unwrap(),
-                                          &self.location.unwrap())));
+            return Ok(Box::new(new_third_party(
+                &self.id.unwrap(),
+                self.verifier_id.unwrap(),
+                &self.location.unwrap(),
+            )));
         }
         if self.verifier_id.is_none() {
-            return Err(MacaroonError::BadMacaroon("Location but no verifier ID found"));
+            return Err(MacaroonError::BadMacaroon(
+                "Location but no verifier ID found",
+            ));
         }
-        Err(MacaroonError::BadMacaroon("Verifier ID but no location found"))
+        Err(MacaroonError::BadMacaroon(
+            "Verifier ID but no location found",
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Caveat, new_first_party, new_third_party};
+    use super::{new_first_party, new_third_party, Caveat};
 
     #[test]
     fn test_caveat_partial_equals_first_party() {

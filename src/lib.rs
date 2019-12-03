@@ -94,10 +94,10 @@
 //! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
 #[macro_use]
 extern crate log;
-extern crate rustc_serialize as serialize;
-extern crate sodiumoxide;
+extern crate base64;
 extern crate serde;
 extern crate serde_json;
+extern crate sodiumoxide;
 
 mod caveat;
 mod crypto;
@@ -106,9 +106,9 @@ mod serialization;
 pub mod verifier;
 
 pub use caveat::{FirstPartyCaveat, ThirdPartyCaveat};
-pub use verifier::Verifier;
 pub use error::MacaroonError;
 pub use serialization::Format;
+pub use verifier::Verifier;
 
 use caveat::{Caveat, CaveatType};
 
@@ -117,8 +117,8 @@ use caveat::{Caveat, CaveatType};
 /// if you don't.
 pub fn initialize() -> Result<(), MacaroonError> {
     match sodiumoxide::init() {
-        Ok(_) => return Ok(()),
-        Err(_) => return Err(MacaroonError::InitializationError)
+        Ok(_) => Ok(()),
+        Err(_) => Err(MacaroonError::InitializationError),
     }
 }
 
@@ -135,10 +135,7 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create<'r>(location: &'r str,
-                      key: &[u8],
-                      identifier: &'r str)
-                      -> Result<Macaroon, MacaroonError> {
+    pub fn create(location: &str, key: &[u8], identifier: &str) -> Result<Macaroon, MacaroonError> {
         let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
@@ -203,7 +200,9 @@ impl Macaroon {
     /// Generate a signature for the given macaroon
     pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
         let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
-        self.caveats.iter().fold(signature, |sig, caveat| caveat.sign(&sig))
+        self.caveats
+            .iter()
+            .fold(signature, |sig, caveat| caveat.sign(&sig))
     }
 
     /// Verify the signature of the macaroon given the key
@@ -218,7 +217,7 @@ impl Macaroon {
     /// DSL which can be verified either by exact string match,
     /// or by using a function to parse the string and validate it
     /// (see Verifier for more info).
-    pub fn add_first_party_caveat<'r>(&mut self, predicate: &'r str) {
+    pub fn add_first_party_caveat(&mut self, predicate: &str) {
         let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(Box::new(caveat));
@@ -247,9 +246,10 @@ impl Macaroon {
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
         discharge.signature = crypto::hmac2(&[0; 32], &self.signature, &discharge.signature);
-        debug!("Macaroon::bind: original: {:?}, discharge: {:?}",
-               self,
-               discharge);
+        debug!(
+            "Macaroon::bind: original: {:?}, discharge: {:?}",
+            self, discharge
+        );
     }
 
     /// Verify a macaroon
@@ -263,8 +263,10 @@ impl Macaroon {
     /// verifying the macaroon.
     pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         if !self.verify_signature(key) {
-            info!("Macaroon::verify: Macaroon {:?} failed signature verification",
-                  self);
+            info!(
+                "Macaroon::verify: Macaroon {:?} failed signature verification",
+                self
+            );
             return Ok(false);
         }
         verifier.reset();
@@ -284,16 +286,19 @@ impl Macaroon {
         Ok(true)
     }
 
-    fn verify_as_discharge(&self,
-                           verifier: &mut Verifier,
-                           root_macaroon: &Macaroon,
-                           key: &[u8])
-                           -> Result<bool, MacaroonError> {
+    fn verify_as_discharge(
+        &self,
+        verifier: &mut Verifier,
+        root_macaroon: &Macaroon,
+        key: &[u8],
+    ) -> Result<bool, MacaroonError> {
         let signature = self.generate_signature(key);
         if !self.verify_discharge_signature(root_macaroon, &signature) {
-            info!("Macaroon::verify_as_discharge: Signature of discharge macaroon {:?} failed \
-                   verification",
-                  self);
+            info!(
+                "Macaroon::verify_as_discharge: Signature of discharge macaroon {:?} failed \
+                 verification",
+                self
+            );
             return Ok(false);
         }
         self.verify_caveats(verifier)
@@ -301,10 +306,11 @@ impl Macaroon {
 
     fn verify_discharge_signature(&self, root_macaroon: &Macaroon, signature: &[u8; 32]) -> bool {
         let discharge_signature = crypto::hmac2(&[0; 32], &root_macaroon.signature, signature);
-        debug!("Macaroon::verify_discharge_signature: self.signature = {:?}, discharge signature \
-                = {:?}",
-               self.signature,
-               discharge_signature);
+        debug!(
+            "Macaroon::verify_discharge_signature: self.signature = {:?}, discharge signature \
+             = {:?}",
+            self.signature, discharge_signature
+        );
         self.signature == discharge_signature
     }
 
@@ -334,13 +340,15 @@ impl Macaroon {
 #[cfg(test)]
 mod tests {
     use super::Macaroon;
-    use error::MacaroonError;
     use caveat::Caveat;
+    use error::MacaroonError;
 
     #[test]
     fn create_macaroon() {
-        let signature = [142, 227, 10, 28, 80, 115, 181, 176, 112, 56, 115, 95, 128, 156, 39, 20,
-                         135, 17, 207, 204, 2, 80, 90, 249, 68, 40, 100, 60, 47, 220, 5, 224];
+        let signature = [
+            142, 227, 10, 28, 80, 115, 181, 176, 112, 56, 115, 95, 128, 156, 39, 20, 135, 17, 207,
+            204, 2, 80, 90, 249, 68, 40, 100, 60, 47, 220, 5, 224,
+        ];
         let key: &[u8; 32] = b"this is a super duper secret key";
         let macaroon_res = Macaroon::create("location", key, "identifier");
         assert!(macaroon_res.is_ok());
@@ -361,17 +369,21 @@ mod tests {
 
     #[test]
     fn create_macaroon_with_first_party_caveat() {
-        let signature = [132, 133, 51, 243, 147, 201, 178, 7, 193, 179, 36, 128, 4, 228, 17, 84,
-                         166, 81, 30, 152, 15, 51, 47, 33, 196, 60, 20, 109, 163, 151, 133, 18];
+        let signature = [
+            132, 133, 51, 243, 147, 201, 178, 7, 193, 179, 36, 128, 4, 228, 17, 84, 166, 81, 30,
+            152, 15, 51, 47, 33, 196, 60, 20, 109, 163, 151, 133, 18,
+        ];
         let key: &[u8; 32] = b"this is a super duper secret key";
         let mut macaroon = Macaroon::create("location", key, "identifier").unwrap();
         macaroon.add_first_party_caveat("predicate");
         assert_eq!(1, macaroon.caveats.len());
-        let ref caveat = macaroon.caveats[0];
+        let caveat = &macaroon.caveats[0];
         assert_eq!("predicate", caveat.as_first_party().unwrap().predicate());
         assert_eq!(signature.to_vec(), macaroon.signature);
-        assert_eq!(*caveat.as_first_party().unwrap(),
-                   macaroon.first_party_caveats()[0]);
+        assert_eq!(
+            *caveat.as_first_party().unwrap(),
+            macaroon.first_party_caveats()[0]
+        );
     }
 
     #[test]
@@ -386,7 +398,9 @@ mod tests {
         let caveat = macaroon.caveats[0].as_third_party().unwrap();
         assert_eq!(location, caveat.location());
         assert_eq!(id, caveat.id());
-        assert_eq!(*caveat.as_third_party().unwrap(),
-                   macaroon.third_party_caveats()[0]);
+        assert_eq!(
+            *caveat.as_third_party().unwrap(),
+            macaroon.third_party_caveats()[0]
+        );
     }
 }

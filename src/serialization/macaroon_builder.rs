@@ -1,6 +1,6 @@
-use Macaroon;
 use caveat::Caveat;
 use error::MacaroonError;
+use Macaroon;
 
 #[derive(Default)]
 pub struct MacaroonBuilder {
