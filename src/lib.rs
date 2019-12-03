@@ -139,8 +139,8 @@ impl Macaroon {
         let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
-            location: Some(String::from(location)),
-            identifier: String::from(identifier),
+            location: Some(location.into()),
+            identifier: identifier.into(),
             signature: crypto::generate_signature(&macaroon_key, identifier),
             caveats: Vec::new(),
         };
@@ -186,7 +186,7 @@ impl Macaroon {
     }
 
     /// Validate the macaroon - used mainly for validating deserialized macaroons
-    pub fn validate(self) -> Result<Self, MacaroonError> {
+    fn validate(self) -> Result<Self, MacaroonError> {
         if self.identifier.is_empty() {
             return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
         }
@@ -195,20 +195,6 @@ impl Macaroon {
         }
 
         Ok(self)
-    }
-
-    /// Generate a signature for the given macaroon
-    pub fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
-        let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
-        self.caveats
-            .iter()
-            .fold(signature, |sig, caveat| caveat.sign(&sig))
-    }
-
-    /// Verify the signature of the macaroon given the key
-    pub fn verify_signature(&self, key: &[u8]) -> bool {
-        let signature = self.generate_signature(key);
-        signature == self.signature
     }
 
     /// Add a first-party caveat to the macaroon
@@ -274,6 +260,20 @@ impl Macaroon {
         self.verify_caveats(verifier)
     }
 
+    /// Generate a signature for the given macaroon
+    fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
+        let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
+        self.caveats
+            .iter()
+            .fold(signature, |sig, caveat| caveat.sign(&sig))
+    }
+
+    /// Verify the signature of the macaroon given the key
+    fn verify_signature(&self, key: &[u8]) -> bool {
+        let signature = self.generate_signature(key);
+        signature == self.signature
+    }
+
     fn verify_caveats(&self, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
         for caveat in &self.caveats {
             match caveat.verify(self, verifier) {
@@ -317,19 +317,19 @@ impl Macaroon {
     /// Serialize the macaroon using the serialization format provided
     pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
         match format {
-            serialization::Format::V1 => serialization::v1::serialize_v1(self),
-            serialization::Format::V2 => serialization::v2::serialize_v2(self),
-            serialization::Format::V2J => serialization::v2j::serialize_v2j(self),
+            serialization::Format::V1 => serialization::v1::serialize(self),
+            serialization::Format::V2 => serialization::v2::serialize(self),
+            serialization::Format::V2J => serialization::v2j::serialize_json(self),
         }
     }
 
     /// Deserialize a macaroon
     pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
         let macaroon: Macaroon = match data[0] as char {
-            '{' => serialization::v2j::deserialize_v2j(data)?,
-            '\x02' => serialization::v2::deserialize_v2(data)?,
+            '{' => serialization::v2j::deserialize_json(data)?,
+            '\x02' => serialization::v2::deserialize(data)?,
             'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '/' | '_' => {
-                serialization::v1::deserialize_v1(data)?
+                serialization::v1::deserialize(data)?
             }
             _ => return Err(MacaroonError::UnknownSerialization),
         };

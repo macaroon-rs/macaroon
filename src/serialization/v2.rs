@@ -30,7 +30,7 @@ fn serialize_field_v2(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
     buffer.extend(value);
 }
 
-pub fn serialize_v2(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
     if let Some(ref location) = macaroon.location() {
@@ -136,7 +136,7 @@ impl<'r> V2Deserializer<'r> {
     }
 }
 
-pub fn deserialize_v2(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: V2Deserializer = V2Deserializer::new(data);
     if deserializer.get_byte()? != 2 {
@@ -252,7 +252,7 @@ mod tests {
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
         ];
         let serialized: Vec<u8> = base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap();
-        let macaroon = super::deserialize_v2(&serialized).unwrap();
+        let macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
@@ -280,7 +280,7 @@ mod tests {
         builder.set_location("http://example.org/");
         builder.set_identifier("keyid");
         builder.set_signature(&SIGNATURE);
-        let serialized = super::serialize_v2(&builder.build().unwrap()).unwrap();
+        let serialized = super::serialize(&builder.build().unwrap()).unwrap();
         assert_eq!(
             base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap(),
             serialized
@@ -293,8 +293,8 @@ mod tests {
         macaroon.add_first_party_caveat("account = 3735928559");
         macaroon.add_first_party_caveat("user = alice");
         macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat");
-        let serialized = super::serialize_v2(&macaroon).unwrap();
-        macaroon = super::deserialize_v2(&serialized).unwrap();
+        let serialized = super::serialize(&macaroon).unwrap();
+        macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
         assert_eq!(3, macaroon.caveats().len());

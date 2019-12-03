@@ -41,7 +41,7 @@ fn packet_header(size: usize) -> Vec<u8> {
     header
 }
 
-pub fn serialize_v1(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let mut serialized: Vec<u8> = Vec::new();
     if let Some(ref location) = macaroon.location() {
         serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
@@ -111,7 +111,7 @@ fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
     }
 }
 
-pub fn deserialize_v1(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
     let data = base64_decode(&String::from_utf8(base64.to_vec())?)?;
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
@@ -175,7 +175,7 @@ mod tests {
             124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223, 233, 178, 78, 120, 94,
             40, 226, 169, 147, 1, 249, 215, 17, 198, 9, 227, 142, 247,
         ];
-        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
+        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
@@ -185,7 +185,7 @@ mod tests {
             245, 72, 7, 246, 220, 110, 223, 136, 191, 15, 115, 6, 179, 130, 37, 98, 163, 98, 83,
             61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135,
         ];
-        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
+        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
@@ -204,7 +204,7 @@ mod tests {
             75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155, 5, 177, 88,
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
         ];
-        let macaroon = super::deserialize_v1(&serialized.as_bytes().to_vec()).unwrap();
+        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());

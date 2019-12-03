@@ -177,13 +177,13 @@ impl Macaroon {
     }
 }
 
-pub fn serialize_v2j(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize_json(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     let serialized: String =
         serde_json::to_string(&V2JSerialization::from_macaroon(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
-pub fn deserialize_v2j(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize_json(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     let v2j: V2JSerialization = serde_json::from_slice(data)?;
     Macaroon::from_v2j(v2j)
 }
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_deserialize_v2j() {
         let serialized_v2j: Vec<u8> = SERIALIZED_V2J.as_bytes().to_vec();
-        let macaroon = super::deserialize_v2j(&serialized_v2j).unwrap();
+        let macaroon = super::deserialize_json(&serialized_v2j).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!("keyid", macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
