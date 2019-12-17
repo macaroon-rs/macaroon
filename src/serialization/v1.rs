@@ -174,7 +174,7 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(signature.to_vec(), macaroon.signature());
         serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         signature = [
@@ -184,7 +184,7 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(1, macaroon.caveats().len());
         assert_eq!(
             ByteString::from("account = 3735928559"),
@@ -203,7 +203,7 @@ mod tests {
         let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(signature.to_vec(), macaroon.signature());
         assert_eq!(2, macaroon.caveats().len());
         assert_eq!(

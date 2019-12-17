@@ -213,7 +213,11 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create(location: &str, key: &[u8], identifier: ByteString) -> Result<Macaroon, MacaroonError> {
+    pub fn create(
+        location: &str,
+        key: &[u8],
+        identifier: ByteString,
+    ) -> Result<Macaroon, MacaroonError> {
         let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
@@ -226,9 +230,9 @@ impl Macaroon {
         macaroon.validate()
     }
 
-    /// Returns the identifier for the macaroon
-    pub fn identifier(&self) -> &ByteString {
-        &self.identifier
+    /// Returns a clone of the identifier for the macaroon
+    pub fn identifier(&self) -> ByteString {
+        self.identifier.clone()
     }
 
     /// Returns the location for the macaroon
@@ -451,7 +455,8 @@ mod tests {
     #[test]
     fn create_invalid_macaroon() {
         let key: &[u8; 32] = b"this is a super duper secret key";
-        let macaroon_res: Result<Macaroon, MacaroonError> = Macaroon::create("location", key, "".into());
+        let macaroon_res: Result<Macaroon, MacaroonError> =
+            Macaroon::create("location", key, "".into());
         assert!(macaroon_res.is_err());
     }
 

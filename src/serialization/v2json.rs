@@ -206,7 +206,7 @@ mod tests {
         let serialized_json: Vec<u8> = SERIALIZED_JSON.as_bytes().to_vec();
         let macaroon = super::deserialize(&serialized_json).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
         assert_eq!(
             ByteString::from("account = 3735928559"),

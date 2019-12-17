@@ -248,7 +248,7 @@ mod tests {
         let serialized: Vec<u8> = base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap();
         let macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
         assert_eq!(
             ByteString::from("account = 3735928559"),
@@ -292,7 +292,7 @@ mod tests {
         let serialized = super::serialize(&macaroon).unwrap();
         macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
-        assert_eq!(&ByteString::from("keyid"), macaroon.identifier());
+        assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(3, macaroon.caveats().len());
         assert_eq!(
             ByteString::from("account = 3735928559"),

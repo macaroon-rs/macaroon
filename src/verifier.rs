@@ -82,10 +82,10 @@ impl Verifier {
         macaroon: &Macaroon,
     ) -> Result<bool, MacaroonError> {
         let dm = self.discharge_macaroons.clone();
-        let dm_opt = dm.iter().find(|dm| *dm.identifier() == caveat.id());
+        let dm_opt = dm.iter().find(|dm| dm.identifier() == caveat.id());
         match dm_opt {
             Some(dm) => {
-                if self.id_chain.iter().any(|id| id == dm.identifier()) {
+                if self.id_chain.iter().any(|id| id == &dm.identifier()) {
                     info!(
                         "Verifier::verify_caveat: caveat verification loop - id {:?} found in \
                          id chain {:?}",
