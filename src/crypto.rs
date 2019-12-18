@@ -1,29 +1,30 @@
 use error::MacaroonError;
 use sodiumoxide::crypto::auth::hmacsha256::{self, Key, Tag};
 use sodiumoxide::crypto::secretbox;
+use ByteString;
 
 const KEY_GENERATOR: &[u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
 
 pub fn generate_derived_key(key: &[u8]) -> [u8; 32] {
-    hmac(KEY_GENERATOR, key)
+    hmac(KEY_GENERATOR, &ByteString(key.to_vec()))
 }
 
-pub fn generate_signature(key: &[u8], text: &str) -> [u8; 32] {
+pub fn generate_signature(key: &[u8], text: &ByteString) -> [u8; 32] {
     let mut key_bytes: [u8; 32] = [0; 32];
     key_bytes[..key.len()].clone_from_slice(key);
-    hmac(&key_bytes, text.as_bytes())
+    hmac(&key_bytes, text)
 }
 
-pub fn hmac(key: &[u8; 32], text: &[u8]) -> [u8; 32] {
-    let Tag(result_bytes) = hmacsha256::authenticate(text, &Key(*key));
+pub fn hmac(key: &[u8; 32], text: &ByteString) -> [u8; 32] {
+    let Tag(result_bytes) = hmacsha256::authenticate(&text.0, &Key(*key));
     result_bytes
 }
 
-pub fn hmac2(key: &[u8; 32], text1: &[u8], text2: &[u8]) -> [u8; 32] {
+pub fn hmac2(key: &[u8; 32], text1: &ByteString, text2: &ByteString) -> [u8; 32] {
     let tmp1: [u8; 32] = hmac(key, text1);
     let tmp2: [u8; 32] = hmac(key, text2);
     let tmp = [tmp1, tmp2].concat();
-    hmac(key, &tmp)
+    hmac(key, &ByteString(tmp.to_vec()))
 }
 
 pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
