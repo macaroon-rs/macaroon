@@ -5,129 +5,53 @@ use verifier::Verifier;
 use ByteString;
 use Macaroon;
 
-#[derive(PartialEq)]
-pub enum CaveatType {
-    FirstParty,
-    ThirdParty,
-}
-
-pub trait Caveat: Debug {
-    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError>;
-
-    fn sign(&self, key: &[u8; 32]) -> [u8; 32];
-    fn get_type(&self) -> CaveatType;
-    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()>;
-    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()>;
-
-    // Required for Clone below
-    fn clone_box(&self) -> Box<dyn Caveat>;
-}
-
-impl Clone for Box<dyn Caveat> {
-    fn clone(&self) -> Box<dyn Caveat> {
-        self.clone_box()
-    }
-}
-
-impl PartialEq for dyn Caveat {
-    fn eq(&self, other: &dyn Caveat) -> bool {
-        if self.get_type() != other.get_type() {
-            return false;
-        }
-
-        match self.get_type() {
-            CaveatType::FirstParty => {
-                let me = self.as_first_party();
-                let you = other.as_first_party();
-                me == you
-            }
-            CaveatType::ThirdParty => {
-                let me = self.as_third_party();
-                let you = other.as_third_party();
-                me == you
-            }
-        }
-    }
-}
-
-/// Struct for a first-party caveat
 #[derive(Clone, Debug, PartialEq)]
-pub struct FirstPartyCaveat {
+pub enum Caveat {
+    FirstParty(FirstParty),
+    ThirdParty(ThirdParty),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FirstParty {
     predicate: ByteString,
 }
 
-impl FirstPartyCaveat {
-    /// Accessor for the predicate
+impl FirstParty {
     pub fn predicate(&self) -> ByteString {
         self.predicate.clone()
     }
 }
 
-impl Caveat for FirstPartyCaveat {
-    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
-        let result = Ok(verifier.verify_predicate(&self.predicate));
-        if let Ok(false) = result {
-            info!(
-                "FirstPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
-                self, macaroon
-            );
-        }
-        verifier.update_signature(|t| self.sign(t));
-        result
-    }
-
-    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
-        crypto::hmac(key, &self.predicate)
-    }
-
-    fn get_type(&self) -> CaveatType {
-        CaveatType::FirstParty
-    }
-
-    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()> {
-        Ok(self)
-    }
-
-    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()> {
-        Err(())
-    }
-
-    fn clone_box(&self) -> Box<dyn Caveat> {
-        Box::new(self.clone())
-    }
-}
-
-/// Struct for a third-party caveat
 #[derive(Clone, Debug, PartialEq)]
-pub struct ThirdPartyCaveat {
+pub struct ThirdParty {
     id: ByteString,
     verifier_id: ByteString,
     location: String,
 }
 
-impl ThirdPartyCaveat {
-    /// Accessor for the identifier
+impl ThirdParty {
     pub fn id(&self) -> ByteString {
         self.id.clone()
     }
-
-    /// Accessor for the verifier ID
     pub fn verifier_id(&self) -> ByteString {
         self.verifier_id.clone()
     }
-
-    /// Accessor for the location
     pub fn location(&self) -> String {
         self.location.clone()
     }
 }
 
-impl Caveat for ThirdPartyCaveat {
-    fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
-        let result = verifier.verify_caveat(self, macaroon);
+impl Caveat {
+    // TODO: See if we can just get rid of this function entirely and move all the logic to the verifier
+    pub fn verify(
+        &self,
+        macaroon: &Macaroon,
+        verifier: &mut Verifier,
+    ) -> Result<bool, MacaroonError> {
+        let result = verifier.verify(self, macaroon);
         if let Ok(false) = result {
             info!(
-                "ThirdPartyCaveat::verify: Caveat {:?} of macaroon {:?} failed verification",
+                "Caveat {:?} of macaroon {:?} failed verification",
                 self, macaroon
             );
         }
@@ -135,41 +59,24 @@ impl Caveat for ThirdPartyCaveat {
         result
     }
 
-    fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
-        crypto::hmac2(key, &self.verifier_id, &self.id.clone())
-    }
-
-    fn get_type(&self) -> CaveatType {
-        CaveatType::ThirdParty
-    }
-
-    fn as_first_party(&self) -> Result<&FirstPartyCaveat, ()> {
-        Err(())
-    }
-
-    fn as_third_party(&self) -> Result<&ThirdPartyCaveat, ()> {
-        Ok(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Caveat> {
-        Box::new(self.clone())
+    pub fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
+        match self {
+            Self::FirstParty(fp) => crypto::hmac(key, &fp.predicate),
+            Self::ThirdParty(tp) => crypto::hmac2(key, &tp.verifier_id, &tp.id),
+        }
     }
 }
 
-pub fn new_first_party(predicate: ByteString) -> FirstPartyCaveat {
-    FirstPartyCaveat { predicate }
+pub fn new_first_party(predicate: ByteString) -> Caveat {
+    Caveat::FirstParty(FirstParty { predicate })
 }
 
-pub fn new_third_party(
-    id: ByteString,
-    verifier_id: ByteString,
-    location: &str,
-) -> ThirdPartyCaveat {
-    ThirdPartyCaveat {
+pub fn new_third_party(id: ByteString, verifier_id: ByteString, location: &str) -> Caveat {
+    Caveat::ThirdParty(ThirdParty {
         id,
         verifier_id,
         location: String::from(location),
-    }
+    })
 }
 
 #[derive(Default)]
@@ -204,19 +111,19 @@ impl CaveatBuilder {
         self.location.is_some()
     }
 
-    pub fn build(self) -> Result<Box<dyn Caveat>, MacaroonError> {
+    pub fn build(self) -> Result<Caveat, MacaroonError> {
         if self.id.is_none() {
             return Err(MacaroonError::BadMacaroon("No identifier found"));
         }
         if self.verifier_id.is_none() && self.location.is_none() {
-            return Ok(Box::new(new_first_party(self.id.unwrap())));
+            return Ok(new_first_party(self.id.unwrap()));
         }
         if self.verifier_id.is_some() && self.location.is_some() {
-            return Ok(Box::new(new_third_party(
+            return Ok(new_third_party(
                 self.id.unwrap(),
                 self.verifier_id.unwrap(),
                 &self.location.unwrap(),
-            )));
+            ));
         }
         if self.verifier_id.is_none() {
             return Err(MacaroonError::BadMacaroon(
@@ -226,34 +133,5 @@ impl CaveatBuilder {
         Err(MacaroonError::BadMacaroon(
             "Verifier ID but no location found",
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{new_first_party, new_third_party, Caveat};
-
-    #[test]
-    fn test_caveat_partial_equals_first_party() {
-        let a = new_first_party("user = alice".into());
-        let b = new_first_party("user = alice".into());
-        let c = new_first_party("user = bob".into());
-        let box_a: Box<dyn Caveat> = Box::new(a);
-        let box_b: Box<dyn Caveat> = Box::new(b);
-        let box_c: Box<dyn Caveat> = Box::new(c);
-        assert_eq!(*box_a, *box_b);
-        assert!(*box_a != *box_c);
-    }
-
-    #[test]
-    fn test_caveat_partial_equals_third_party() {
-        let a = new_third_party("foo".into(), "bar".into(), "foobar");
-        let b = new_third_party("foo".into(), "bar".into(), "foobar");
-        let c = new_third_party("baz".into(), "bar".into(), "foobar");
-        let box_a: Box<dyn Caveat> = Box::new(a);
-        let box_b: Box<dyn Caveat> = Box::new(b);
-        let box_c: Box<dyn Caveat> = Box::new(c);
-        assert_eq!(*box_a, *box_b);
-        assert!(*box_a != *box_c);
     }
 }

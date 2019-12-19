@@ -1,4 +1,4 @@
-use caveat::{CaveatBuilder, CaveatType};
+use caveat::{Caveat, CaveatBuilder};
 use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
@@ -48,17 +48,15 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
     };
     serialized.extend(serialize_as_packet(IDENTIFIER, &macaroon.identifier().0));
-    for caveat in macaroon.caveats() {
-        match caveat.get_type() {
-            CaveatType::FirstParty => {
-                let first_party = caveat.as_first_party().unwrap();
-                serialized.extend(serialize_as_packet(CID, &first_party.predicate().0));
+    for c in macaroon.caveats() {
+        match c {
+            Caveat::FirstParty(fp) => {
+                serialized.extend(serialize_as_packet(CID, &fp.predicate().0));
             }
-            CaveatType::ThirdParty => {
-                let third_party = caveat.as_third_party().unwrap();
-                serialized.extend(serialize_as_packet(CID, &third_party.id().0));
-                serialized.extend(serialize_as_packet(VID, &third_party.verifier_id().0));
-                serialized.extend(serialize_as_packet(CL, third_party.location().as_bytes()))
+            Caveat::ThirdParty(tp) => {
+                serialized.extend(serialize_as_packet(CID, &tp.id().0));
+                serialized.extend(serialize_as_packet(VID, &tp.verifier_id().0));
+                serialized.extend(serialize_as_packet(CL, tp.location().as_bytes()))
             }
         }
     }
@@ -162,6 +160,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use ByteString;
+    use Caveat;
     use Macaroon;
 
     #[test]
@@ -186,10 +185,11 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(1, macaroon.caveats().len());
-        assert_eq!(
-            ByteString::from("account = 3735928559"),
-            macaroon.caveats()[0].as_first_party().unwrap().predicate()
-        );
+        let predicate = match &macaroon.caveats()[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("account = 3735928559"), predicate);
         assert_eq!(signature.to_vec(), macaroon.signature());
     }
 
@@ -206,14 +206,16 @@ mod tests {
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(signature.to_vec(), macaroon.signature());
         assert_eq!(2, macaroon.caveats().len());
-        assert_eq!(
-            ByteString::from("account = 3735928559"),
-            macaroon.caveats()[0].as_first_party().unwrap().predicate()
-        );
-        assert_eq!(
-            ByteString::from("user = alice"),
-            macaroon.caveats()[1].as_first_party().unwrap().predicate()
-        );
+        let predicate = match &macaroon.caveats()[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("account = 3735928559"), predicate);
+        let predicate = match &macaroon.caveats()[1] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("user = alice"), predicate);
     }
 
     #[test]
