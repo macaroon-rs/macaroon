@@ -105,12 +105,11 @@ pub mod error;
 mod serialization;
 pub mod verifier;
 
-pub use caveat::{FirstPartyCaveat, ThirdPartyCaveat};
+pub use caveat::Caveat;
 pub use error::MacaroonError;
 pub use serialization::Format;
 pub use verifier::Verifier;
 
-use caveat::{Caveat, CaveatType};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -205,7 +204,7 @@ pub struct Macaroon {
     identifier: ByteString,
     location: Option<String>,
     signature: [u8; 32],
-    caveats: Vec<Box<dyn Caveat>>,
+    caveats: Vec<Caveat>,
 }
 
 impl Macaroon {
@@ -245,25 +244,31 @@ impl Macaroon {
         &self.signature
     }
 
-    fn caveats(&self) -> &Vec<Box<dyn Caveat>> {
+    fn caveats(&self) -> &Vec<Caveat> {
         &self.caveats
     }
 
     /// Retrieve a list of the first-party caveats for the macaroon
-    pub fn first_party_caveats(&self) -> Vec<FirstPartyCaveat> {
+    pub fn first_party_caveats(&self) -> Vec<Caveat> {
         self.caveats
             .iter()
-            .filter(|c| c.get_type() == CaveatType::FirstParty)
-            .map(|c| c.as_first_party().unwrap().clone())
+            .filter(|c| match c {
+                caveat::Caveat::FirstParty(_) => true,
+                _ => false,
+            })
+            .cloned()
             .collect()
     }
 
     /// Retrieve a list of the third-party caveats for the macaroon
-    pub fn third_party_caveats(&self) -> Vec<ThirdPartyCaveat> {
+    pub fn third_party_caveats(&self) -> Vec<Caveat> {
         self.caveats
             .iter()
-            .filter(|c| c.get_type() == CaveatType::ThirdParty)
-            .map(|c| c.as_third_party().unwrap().clone())
+            .filter(|c| match c {
+                caveat::Caveat::ThirdParty(_) => true,
+                _ => false,
+            })
+            .cloned()
             .collect()
     }
 
@@ -286,9 +291,9 @@ impl Macaroon {
     /// or by using a function to parse the string and validate it
     /// (see Verifier for more info).
     pub fn add_first_party_caveat(&mut self, predicate: ByteString) {
-        let caveat: caveat::FirstPartyCaveat = caveat::new_first_party(predicate);
+        let caveat: caveat::Caveat = caveat::new_first_party(predicate);
         self.signature = caveat.sign(&self.signature);
-        self.caveats.push(Box::new(caveat));
+        self.caveats.push(caveat);
         debug!("Macaroon::add_first_party_caveat: {:?}", self);
     }
 
@@ -299,10 +304,9 @@ impl Macaroon {
     pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8], id: ByteString) {
         let derived_key: [u8; 32] = crypto::generate_derived_key(key);
         let vid: Vec<u8> = crypto::encrypt(self.signature, &derived_key);
-        let caveat: caveat::ThirdPartyCaveat =
-            caveat::new_third_party(id, ByteString(vid), location);
+        let caveat: caveat::Caveat = caveat::new_third_party(id, ByteString(vid), location);
         self.signature = caveat.sign(&self.signature);
-        self.caveats.push(Box::new(caveat));
+        self.caveats.push(caveat);
         debug!("Macaroon::add_third_party_caveat: {:?}", self);
     }
 
@@ -431,8 +435,8 @@ impl Macaroon {
 #[cfg(test)]
 mod tests {
     use super::ByteString;
+    use super::Caveat;
     use super::Macaroon;
-    use caveat::Caveat;
     use error::MacaroonError;
 
     #[test]
@@ -470,16 +474,13 @@ mod tests {
         let mut macaroon = Macaroon::create("location", key, "identifier".into()).unwrap();
         macaroon.add_first_party_caveat("predicate".into());
         assert_eq!(1, macaroon.caveats.len());
-        let caveat = &macaroon.caveats[0];
-        assert_eq!(
-            ByteString::from("predicate"),
-            caveat.as_first_party().unwrap().predicate()
-        );
+        let predicate = match &macaroon.caveats[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("predicate"), predicate);
         assert_eq!(signature.to_vec(), macaroon.signature);
-        assert_eq!(
-            *caveat.as_first_party().unwrap(),
-            macaroon.first_party_caveats()[0]
-        );
+        assert_eq!(&macaroon.caveats[0], &macaroon.first_party_caveats()[0]);
     }
 
     #[test]
@@ -491,12 +492,16 @@ mod tests {
         let id = "My Caveat";
         macaroon.add_third_party_caveat(location, cav_key, id.into());
         assert_eq!(1, macaroon.caveats.len());
-        let caveat = macaroon.caveats[0].as_third_party().unwrap();
-        assert_eq!(location, caveat.location());
-        assert_eq!(ByteString::from(id), caveat.id());
-        assert_eq!(
-            *caveat.as_third_party().unwrap(),
-            macaroon.third_party_caveats()[0]
-        );
+        let cav_id = match &macaroon.caveats[0] {
+            Caveat::ThirdParty(tp) => tp.id(),
+            _ => ByteString::default(),
+        };
+        let cav_location = match &macaroon.caveats[0] {
+            Caveat::ThirdParty(tp) => tp.location(),
+            _ => String::default(),
+        };
+        assert_eq!(location, cav_location);
+        assert_eq!(ByteString::from(id), cav_id);
+        assert_eq!(&macaroon.caveats[0], &macaroon.third_party_caveats()[0]);
     }
 }

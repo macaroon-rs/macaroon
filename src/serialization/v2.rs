@@ -1,4 +1,4 @@
-use caveat::{CaveatBuilder, CaveatType};
+use caveat::{Caveat, CaveatBuilder};
 use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 use ByteString;
@@ -39,18 +39,16 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
     };
     serialize_field(IDENTIFIER, &macaroon.identifier().0, &mut buffer);
     buffer.push(EOS);
-    for caveat in macaroon.caveats() {
-        match caveat.get_type() {
-            CaveatType::FirstParty => {
-                let first_party = caveat.as_first_party().unwrap();
-                serialize_field(IDENTIFIER, &first_party.predicate().0, &mut buffer);
+    for c in macaroon.caveats() {
+        match c {
+            Caveat::FirstParty(fp) => {
+                serialize_field(IDENTIFIER, &fp.predicate().0, &mut buffer);
                 buffer.push(EOS);
             }
-            CaveatType::ThirdParty => {
-                let third_party = caveat.as_third_party().unwrap();
-                serialize_field(LOCATION, third_party.location().as_bytes(), &mut buffer);
-                serialize_field(IDENTIFIER, &third_party.id().0, &mut buffer);
-                serialize_field(VID, &third_party.verifier_id().0, &mut buffer);
+            Caveat::ThirdParty(tp) => {
+                serialize_field(LOCATION, tp.location().as_bytes(), &mut buffer);
+                serialize_field(IDENTIFIER, &tp.id().0, &mut buffer);
+                serialize_field(VID, &tp.verifier_id().0, &mut buffer);
                 buffer.push(EOS);
             }
         }
@@ -234,6 +232,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
 #[cfg(test)]
 mod tests {
     use caveat;
+    use caveat::Caveat;
     use serialization::macaroon_builder::MacaroonBuilder;
     use ByteString;
     use Macaroon;
@@ -250,14 +249,16 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
-        assert_eq!(
-            ByteString::from("account = 3735928559"),
-            macaroon.caveats()[0].as_first_party().unwrap().predicate()
-        );
-        assert_eq!(
-            ByteString::from("user = alice"),
-            macaroon.caveats()[1].as_first_party().unwrap().predicate()
-        );
+        let predicate = match &macaroon.caveats()[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("account = 3735928559"), predicate);
+        let predicate = match &macaroon.caveats()[1] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("user = alice"), predicate);
         assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
     }
 
@@ -269,10 +270,8 @@ mod tests {
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
         ];
         let mut builder = MacaroonBuilder::new();
-        builder.add_caveat(Box::new(caveat::new_first_party(
-            "account = 3735928559".into(),
-        )));
-        builder.add_caveat(Box::new(caveat::new_first_party("user = alice".into())));
+        builder.add_caveat(caveat::new_first_party("account = 3735928559".into()));
+        builder.add_caveat(caveat::new_first_party("user = alice".into()));
         builder.set_location("http://example.org/");
         builder.set_identifier("keyid".into());
         builder.set_signature(&SIGNATURE);
@@ -294,21 +293,25 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(3, macaroon.caveats().len());
-        assert_eq!(
-            ByteString::from("account = 3735928559"),
-            macaroon.caveats()[0].as_first_party().unwrap().predicate()
-        );
-        assert_eq!(
-            ByteString::from("user = alice"),
-            macaroon.caveats()[1].as_first_party().unwrap().predicate()
-        );
-        assert_eq!(
-            ByteString::from("caveat"),
-            macaroon.caveats()[2].as_third_party().unwrap().id()
-        );
-        assert_eq!(
-            "https://auth.mybank.com",
-            macaroon.caveats()[2].as_third_party().unwrap().location()
-        );
+        let predicate = match &macaroon.caveats()[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("account = 3735928559"), predicate);
+        let predicate = match &macaroon.caveats()[1] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("user = alice"), predicate);
+        let id = match &macaroon.caveats()[2] {
+            Caveat::ThirdParty(tp) => tp.id(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("caveat"), id);
+        let location = match &macaroon.caveats()[2] {
+            Caveat::ThirdParty(tp) => tp.location(),
+            _ => String::default(),
+        };
+        assert_eq!("https://auth.mybank.com", location);
     }
 }

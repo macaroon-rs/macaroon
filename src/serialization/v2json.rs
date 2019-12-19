@@ -1,4 +1,5 @@
-use caveat::{CaveatBuilder, CaveatType};
+use caveat;
+use caveat::CaveatBuilder;
 use error::MacaroonError;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -44,13 +45,12 @@ impl Serialization {
                 base64::URL_SAFE,
             )),
         };
-        for caveat in macaroon.caveats() {
-            match caveat.get_type() {
-                CaveatType::FirstParty => {
-                    let first_party = caveat.as_first_party().unwrap();
+        for c in macaroon.caveats() {
+            match c {
+                caveat::Caveat::FirstParty(fp) => {
                     let serialized_caveat: Caveat = Caveat {
                         i: None,
-                        i64: Some(first_party.predicate()),
+                        i64: Some(fp.predicate()),
                         l: None,
                         l64: None,
                         v: None,
@@ -58,15 +58,14 @@ impl Serialization {
                     };
                     serialized.c.push(serialized_caveat);
                 }
-                CaveatType::ThirdParty => {
-                    let third_party = caveat.as_third_party().unwrap();
+                caveat::Caveat::ThirdParty(tp) => {
                     let serialized_caveat: Caveat = Caveat {
                         i: None,
-                        i64: Some(third_party.id()),
-                        l: Some(third_party.location()),
+                        i64: Some(tp.id()),
+                        l: Some(tp.location()),
                         l64: None,
                         v: None,
-                        v64: Some(third_party.verifier_id()),
+                        v64: Some(tp.verifier_id()),
                     };
                     serialized.c.push(serialized_caveat);
                 }
@@ -190,6 +189,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
 mod tests {
     use super::super::Format;
     use ByteString;
+    use Caveat;
     use Macaroon;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
@@ -208,14 +208,16 @@ mod tests {
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
         assert_eq!(2, macaroon.caveats().len());
-        assert_eq!(
-            ByteString::from("account = 3735928559"),
-            macaroon.caveats()[0].as_first_party().unwrap().predicate()
-        );
-        assert_eq!(
-            ByteString::from("user = alice"),
-            macaroon.caveats()[1].as_first_party().unwrap().predicate()
-        );
+        let predicate = match &macaroon.caveats()[0] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("account = 3735928559"), predicate);
+        let predicate = match &macaroon.caveats()[1] {
+            Caveat::FirstParty(fp) => fp.predicate(),
+            _ => ByteString::default(),
+        };
+        assert_eq!(ByteString::from("user = alice"), predicate);
         assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
     }
 
