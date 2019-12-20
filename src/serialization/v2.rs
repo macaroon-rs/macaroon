@@ -3,6 +3,7 @@ use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 use ByteString;
 use Macaroon;
+use Result;
 
 // Version 2 fields
 const EOS: u8 = 0;
@@ -31,7 +32,7 @@ fn serialize_field(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
     buffer.extend(value);
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
     if let Some(ref location) = macaroon.location() {
@@ -68,7 +69,7 @@ impl<'r> Deserializer<'r> {
         Deserializer { data, index: 0 }
     }
 
-    fn get_byte(&mut self) -> Result<u8, MacaroonError> {
+    fn get_byte(&mut self) -> Result<u8> {
         if self.index > self.data.len() - 1 {
             return Err(MacaroonError::DeserializationError(String::from(
                 "Buffer overrun",
@@ -79,11 +80,11 @@ impl<'r> Deserializer<'r> {
         Ok(byte)
     }
 
-    pub fn get_tag(&mut self) -> Result<u8, MacaroonError> {
+    pub fn get_tag(&mut self) -> Result<u8> {
         self.get_byte()
     }
 
-    pub fn get_eos(&mut self) -> Result<u8, MacaroonError> {
+    pub fn get_eos(&mut self) -> Result<u8> {
         let eos = self.get_byte()?;
         match eos {
             EOS => Ok(eos),
@@ -93,7 +94,7 @@ impl<'r> Deserializer<'r> {
         }
     }
 
-    pub fn get_field(&mut self) -> Result<Vec<u8>, MacaroonError> {
+    pub fn get_field(&mut self) -> Result<Vec<u8>> {
         let size: usize = self.get_field_size()?;
         if size + self.index > self.data.len() {
             return Err(MacaroonError::DeserializationError(String::from(
@@ -107,7 +108,7 @@ impl<'r> Deserializer<'r> {
         Ok(field)
     }
 
-    fn get_field_size(&mut self) -> Result<usize, MacaroonError> {
+    fn get_field_size(&mut self) -> Result<usize> {
         let mut size: usize = 0;
         let mut shift: usize = 0;
         let mut byte: u8;
@@ -127,7 +128,7 @@ impl<'r> Deserializer<'r> {
     }
 }
 
-pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: Deserializer = Deserializer::new(data);
     if deserializer.get_byte()? != 2 {

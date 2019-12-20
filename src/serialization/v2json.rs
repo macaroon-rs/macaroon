@@ -7,6 +7,7 @@ use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
 use ByteString;
 use Macaroon;
+use Result;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
@@ -31,7 +32,7 @@ struct Serialization {
 }
 
 impl Serialization {
-    fn from_macaroon(macaroon: Macaroon) -> Result<Serialization, MacaroonError> {
+    fn from_macaroon(macaroon: Macaroon) -> Result<Serialization> {
         let mut serialized: Serialization = Serialization {
             v: 2,
             i: None,
@@ -77,7 +78,7 @@ impl Serialization {
 }
 
 impl Macaroon {
-    fn from_json(ser: Serialization) -> Result<Macaroon, MacaroonError> {
+    fn from_json(ser: Serialization) -> Result<Macaroon> {
         if ser.i.is_some() && ser.i64.is_some() {
             return Err(MacaroonError::DeserializationError(String::from(
                 "Found i and i64 fields",
@@ -174,13 +175,13 @@ impl Macaroon {
     }
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let serialized: String =
         serde_json::to_string(&Serialization::from_macaroon(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
-pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     let v2j: Serialization = serde_json::from_slice(data)?;
     Macaroon::from_json(v2j)
 }

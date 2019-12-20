@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use verifier::Verifier;
 use ByteString;
 use Macaroon;
+use Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Caveat {
@@ -43,11 +44,7 @@ impl ThirdParty {
 
 impl Caveat {
     // TODO: See if we can just get rid of this function entirely and move all the logic to the verifier
-    pub fn verify(
-        &self,
-        macaroon: &Macaroon,
-        verifier: &mut Verifier,
-    ) -> Result<bool, MacaroonError> {
+    pub fn verify(&self, macaroon: &Macaroon, verifier: &mut Verifier) -> Result<bool> {
         let result = verifier.verify(self, macaroon);
         if let Ok(false) = result {
             info!(
@@ -111,7 +108,7 @@ impl CaveatBuilder {
         self.location.is_some()
     }
 
-    pub fn build(self) -> Result<Caveat, MacaroonError> {
+    pub fn build(self) -> Result<Caveat> {
         if self.id.is_none() {
             return Err(MacaroonError::BadMacaroon("No identifier found"));
         }

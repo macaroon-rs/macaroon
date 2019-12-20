@@ -4,6 +4,7 @@ use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
 use ByteString;
 use Macaroon;
+use Result;
 
 // Version 1 fields
 const LOCATION: &str = "location";
@@ -42,7 +43,7 @@ fn packet_header(size: usize) -> Vec<u8> {
     header
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut serialized: Vec<u8> = Vec::new();
     if let Some(ref location) = macaroon.location() {
         serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
@@ -66,7 +67,7 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         .to_vec())
 }
 
-fn base64_decode(s: &str) -> Result<Vec<u8>, MacaroonError> {
+fn base64_decode(s: &str) -> Result<Vec<u8>> {
     Ok(base64::decode_config(s, base64::URL_SAFE)?)
 }
 
@@ -75,10 +76,7 @@ struct Packet {
     value: Vec<u8>,
 }
 
-fn deserialize_as_packets(
-    data: &[u8],
-    mut packets: Vec<Packet>,
-) -> Result<Vec<Packet>, MacaroonError> {
+fn deserialize_as_packets(data: &[u8], mut packets: Vec<Packet>) -> Result<Vec<Packet>> {
     if data.is_empty() {
         return Ok(packets);
     }
@@ -95,7 +93,7 @@ fn deserialize_as_packets(
     deserialize_as_packets(&data[size..], packets)
 }
 
-fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
+fn split_index(packet: &[u8]) -> Result<usize> {
     match packet.iter().position(|&r| r == b' ') {
         Some(index) => Ok(index),
         None => Err(MacaroonError::DeserializationError(String::from(
@@ -104,7 +102,7 @@ fn split_index(packet: &[u8]) -> Result<usize, MacaroonError> {
     }
 }
 
-pub fn deserialize(base64: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(base64: &[u8]) -> Result<Macaroon> {
     let data = base64_decode(&String::from_utf8(base64.to_vec())?)?;
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();

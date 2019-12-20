@@ -114,10 +114,12 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
+pub type Result<T> = std::result::Result<T, MacaroonError>;
+
 /// Initializes the cryptographic libraries. Although you can use libmacaroon-rs without
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
-pub fn initialize() -> Result<(), MacaroonError> {
+pub fn initialize() -> Result<()> {
     match sodiumoxide::init() {
         Ok(_) => Ok(()),
         Err(_) => Err(MacaroonError::InitializationError),
@@ -212,11 +214,7 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create(
-        location: &str,
-        key: &[u8],
-        identifier: ByteString,
-    ) -> Result<Macaroon, MacaroonError> {
+    pub fn create(location: &str, key: &[u8], identifier: ByteString) -> Result<Macaroon> {
         let macaroon_key = crypto::generate_derived_key(key);
 
         let macaroon: Macaroon = Macaroon {
@@ -273,7 +271,7 @@ impl Macaroon {
     }
 
     /// Validate the macaroon - used mainly for validating deserialized macaroons
-    fn validate(self) -> Result<Self, MacaroonError> {
+    fn validate(self) -> Result<Self> {
         if self.identifier.0.is_empty() {
             return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
         }
@@ -338,7 +336,7 @@ impl Macaroon {
     ///
     /// Returns `Ok(true)` if authorized, `Ok(false)` if not, and `MacaroonError` if there was an error
     /// verifying the macaroon.
-    pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
+    pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool> {
         if !self.verify_signature(key) {
             info!(
                 "Macaroon::verify: Macaroon {:?} failed signature verification",
@@ -365,7 +363,7 @@ impl Macaroon {
         signature == self.signature
     }
 
-    fn verify_caveats(&self, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
+    fn verify_caveats(&self, verifier: &mut Verifier) -> Result<bool> {
         for caveat in &self.caveats {
             match caveat.verify(self, verifier) {
                 Ok(true) => (),
@@ -382,7 +380,7 @@ impl Macaroon {
         verifier: &mut Verifier,
         root_macaroon: &Macaroon,
         key: &[u8],
-    ) -> Result<bool, MacaroonError> {
+    ) -> Result<bool> {
         let signature = self.generate_signature(key);
         if !self.verify_discharge_signature(root_macaroon, &signature) {
             info!(
@@ -410,7 +408,7 @@ impl Macaroon {
     }
 
     /// Serialize the macaroon using the serialization format provided
-    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
+    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>> {
         match format {
             serialization::Format::V1 => serialization::v1::serialize(self),
             serialization::Format::V2 => serialization::v2::serialize(self),
@@ -419,7 +417,7 @@ impl Macaroon {
     }
 
     /// Deserialize a macaroon
-    pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+    pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2json::deserialize(data)?,
             '\x02' => serialization::v2::deserialize(data)?,
@@ -437,7 +435,7 @@ mod tests {
     use super::ByteString;
     use super::Caveat;
     use super::Macaroon;
-    use error::MacaroonError;
+    use Result;
 
     #[test]
     fn create_macaroon() {
@@ -459,8 +457,7 @@ mod tests {
     #[test]
     fn create_invalid_macaroon() {
         let key: &[u8; 32] = b"this is a super duper secret key";
-        let macaroon_res: Result<Macaroon, MacaroonError> =
-            Macaroon::create("location", key, "".into());
+        let macaroon_res: Result<Macaroon> = Macaroon::create("location", key, "".into());
         assert!(macaroon_res.is_err());
     }
 

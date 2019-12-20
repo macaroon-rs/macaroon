@@ -1,8 +1,8 @@
 use caveat;
 use crypto;
-use error::MacaroonError;
 use ByteString;
 use Macaroon;
+use Result;
 
 /// Type of callback for `Verifier::satisfy_general()`
 pub type VerifierCallback = fn(&ByteString) -> bool;
@@ -58,11 +58,7 @@ impl Verifier {
         self.signature = generator(&self.signature);
     }
 
-    pub fn verify(
-        &mut self,
-        caveat: &caveat::Caveat,
-        macaroon: &Macaroon,
-    ) -> Result<bool, MacaroonError> {
+    pub fn verify(&mut self, caveat: &caveat::Caveat, macaroon: &Macaroon) -> Result<bool> {
         match caveat {
             caveat::Caveat::FirstParty(fp) => Ok(self.verify_predicate(&fp.predicate())),
             caveat::Caveat::ThirdParty(tp) => self.verify_caveat(tp, macaroon),
@@ -87,11 +83,7 @@ impl Verifier {
         false
     }
 
-    fn verify_caveat(
-        &mut self,
-        caveat: &caveat::ThirdParty,
-        macaroon: &Macaroon,
-    ) -> Result<bool, MacaroonError> {
+    fn verify_caveat(&mut self, caveat: &caveat::ThirdParty, macaroon: &Macaroon) -> Result<bool> {
         let dm = self.discharge_macaroons.clone();
         let dm_opt = dm.iter().find(|dm| dm.identifier() == caveat.id());
         match dm_opt {

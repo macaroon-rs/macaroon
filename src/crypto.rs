@@ -2,6 +2,7 @@ use error::MacaroonError;
 use sodiumoxide::crypto::auth::hmacsha256::{self, Key, Tag};
 use sodiumoxide::crypto::secretbox;
 use ByteString;
+use Result;
 
 const KEY_GENERATOR: &[u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
 
@@ -36,7 +37,7 @@ pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
     ret
 }
 
-pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
+pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>> {
     if data.len() <= secretbox::NONCEBYTES + secretbox::MACBYTES {
         error!("crypto::decrypt: Encrypted data {:?} too short", data);
         return Err(MacaroonError::DecryptionError("Encrypted data too short"));
