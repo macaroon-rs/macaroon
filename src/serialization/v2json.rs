@@ -189,6 +189,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 #[cfg(test)]
 mod tests {
     use super::super::Format;
+    use crypto;
     use ByteString;
     use Caveat;
     use Macaroon;
@@ -227,7 +228,11 @@ mod tests {
         let mut macaroon =
             Macaroon::create("http://example.org/", &SIGNATURE, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_third_party_caveat("https://auth.mybank.com/", b"my key", "keyid".into());
+        macaroon.add_third_party_caveat(
+            "https://auth.mybank.com/",
+            &crypto::generate_derived_key(b"my key"),
+            "keyid".into(),
+        );
         let serialized = macaroon.serialize(Format::V2JSON).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);

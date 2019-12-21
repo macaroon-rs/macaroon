@@ -1,115 +1,97 @@
-use caveat;
 use crypto;
+use std::cell::RefCell;
+use std::collections::BTreeSet;
+use std::collections::HashMap;
 use ByteString;
+use Caveat;
 use Macaroon;
+use MacaroonError;
 use Result;
 
-/// Type of callback for `Verifier::satisfy_general()`
-pub type VerifierCallback = fn(&ByteString) -> bool;
+pub type VerifyFunc = fn(&ByteString) -> bool;
 
-/// Verifier struct
-///
-/// Contains all information and maintains all state for the macaroon
-/// verification process
 #[derive(Default)]
 pub struct Verifier {
-    predicates: Vec<ByteString>,
-    callbacks: Vec<VerifierCallback>,
-    discharge_macaroons: Vec<Macaroon>,
-    signature: [u8; 32],
-    id_chain: Vec<ByteString>,
+    exact: BTreeSet<ByteString>,
+    general: Vec<VerifyFunc>,
 }
 
 impl Verifier {
-    /// Create a new Verifier
-    pub fn new() -> Verifier {
-        Default::default()
-    }
-
-    pub fn reset(&mut self) {
-        self.signature = [0; 32];
-        self.id_chain.clear();
-    }
-
-    /// Predicate to satisfy a caveat by exact string match
-    pub fn satisfy_exact(&mut self, predicate: ByteString) {
-        self.predicates.push(predicate);
-    }
-
-    /// Provides a callback function used to verify a caveat
-    pub fn satisfy_general(&mut self, callback: VerifierCallback) {
-        self.callbacks.push(callback);
-    }
-
-    /// Adds discharge macaroons to the verifier
-    pub fn add_discharge_macaroons(&mut self, discharge_macaroons: &[Macaroon]) {
-        self.discharge_macaroons
-            .extend(discharge_macaroons.to_vec());
-    }
-
-    pub fn set_signature(&mut self, signature: [u8; 32]) {
-        self.signature = signature;
-    }
-
-    pub fn update_signature<F>(&mut self, generator: F)
-    where
-        F: Fn(&[u8; 32]) -> [u8; 32],
-    {
-        self.signature = generator(&self.signature);
-    }
-
-    pub fn verify(&mut self, caveat: &caveat::Caveat, macaroon: &Macaroon) -> Result<bool> {
-        match caveat {
-            caveat::Caveat::FirstParty(fp) => Ok(self.verify_predicate(&fp.predicate())),
-            caveat::Caveat::ThirdParty(tp) => self.verify_caveat(tp, macaroon),
+    pub fn verify(&self, m: &Macaroon, key: &[u8; 32], discharges: Vec<Macaroon>) -> Result<()> {
+        let discharge_set = &RefCell::new(
+            discharges
+                .iter()
+                .map(|d| (d.identifier.clone(), d.clone()))
+                .collect(),
+        );
+        self.verify_with_sig(&m.signature, m, key, discharge_set)?;
+        // Now check that all discharges were used
+        if !discharge_set.borrow().is_empty() {
+            return Err(MacaroonError::InvalidMacaroon(
+                "all discharge macaroons were not used",
+            ));
         }
+        Ok(())
     }
 
-    fn verify_predicate(&self, predicate: &ByteString) -> bool {
-        let mut count = self.predicates.iter().filter(|&p| p == predicate).count();
-        if count > 0 {
-            return true;
-        }
-
-        count = self
-            .callbacks
-            .iter()
-            .filter(|&callback| callback(predicate))
-            .count();
-        if count > 0 {
-            return true;
-        }
-
-        false
-    }
-
-    fn verify_caveat(&mut self, caveat: &caveat::ThirdParty, macaroon: &Macaroon) -> Result<bool> {
-        let dm = self.discharge_macaroons.clone();
-        let dm_opt = dm.iter().find(|dm| dm.identifier() == caveat.id());
-        match dm_opt {
-            Some(dm) => {
-                if self.id_chain.iter().any(|id| id == &dm.identifier()) {
-                    info!(
-                        "Verifier::verify_caveat: caveat verification loop - id {:?} found in \
-                         id chain {:?}",
-                        dm.identifier(),
-                        self.id_chain
-                    );
-                    return Ok(false);
+    fn verify_with_sig(
+        &self,
+        root_sig: &[u8; 32],
+        m: &Macaroon,
+        key: &[u8; 32],
+        discharge_set: &RefCell<HashMap<ByteString, Macaroon>>,
+    ) -> Result<()> {
+        let mut sig = crypto::hmac(key, &m.identifier());
+        for c in m.caveats() {
+            sig = match &c {
+                Caveat::ThirdParty(tp) => {
+                    let caveat_key = crypto::decrypt_key(sig, &tp.verifier_id().0)?;
+                    let dm = discharge_set.borrow_mut().remove(&tp.id()).ok_or_else(|| MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
+                    self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
+                    c.sign(&sig)
                 }
-                self.id_chain.push(dm.identifier().clone());
-                let key = crypto::decrypt(self.signature, &caveat.verifier_id().0)?;
-                dm.verify_as_discharge(self, macaroon, key.as_slice())
-            }
-            None => {
-                info!(
-                    "Verifier::verify_caveat: No discharge macaroon found matching caveat id \
-                     {:?}",
-                    caveat.id()
-                );
-                Ok(false)
+                Caveat::FirstParty(fp) => {
+                    // This checks exact caveats first and then general second
+                    // if it fails due to logic short circuiting
+                    if !(self.exact.contains(&fp.predicate())
+                        || self.verify_general(&fp.predicate()))
+                    {
+                        // If both failed, it means we weren't successful at either
+                        return Err(MacaroonError::InvalidMacaroon("caveats are not valid"));
+                    }
+                    c.sign(&sig)
+                }
+            };
+        }
+        // If the root sig equals the newly generated sig, that means we reached
+        // the end of the line and we are ok to return
+        if root_sig == &sig {
+            return Ok(());
+        }
+        // Check the bound signature equals the signature of the discharge
+        // macaroon
+        let bound_sig = crypto::hmac2(&[0; 32], &ByteString(root_sig.to_vec()), &sig.into());
+        if bound_sig != m.signature {
+            return Err(MacaroonError::InvalidMacaroon("signature is not valid"));
+        }
+        Ok(())
+    }
+
+    pub fn satisfy_exact(&mut self, b: ByteString) {
+        self.exact.insert(b);
+    }
+
+    pub fn satisfy_general(&mut self, f: VerifyFunc) {
+        self.general.push(f)
+    }
+
+    fn verify_general(&self, value: &ByteString) -> bool {
+        for f in self.general.iter() {
+            if f(value) {
+                return true;
             }
         }
+        false
     }
 }
 
@@ -126,72 +108,88 @@ mod tests {
     fn test_simple_macaroon() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let verifier = Verifier::default();
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap();
     }
 
     #[test]
     fn test_simple_macaroon_bad_verifier_key() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let verifier = Verifier::default();
         let key = crypto::generate_derived_key(b"this is not the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     #[test]
     fn test_macaroon_exact_caveat() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap()
     }
 
     #[test]
     fn test_macaroon_exact_caveat_wrong_verifier() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 0000000000".into());
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     #[test]
     fn test_macaroon_exact_caveat_wrong_context() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDJmc2lnbmF0dXJlIPVIB_bcbt-Ivw9zBrOCJWKjYlM9v3M5umF2XaS9JZ2HCg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let verifier = Verifier::default();
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     #[test]
     fn test_macaroon_two_exact_caveats() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap()
     }
 
     #[test]
     fn test_macaroon_two_exact_caveats_incomplete_verifier() {
         let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
         let macaroon = Macaroon::deserialize(&serialized.as_bytes().to_vec()).unwrap();
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
-        let mut verifier = Verifier::new();
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("user = alice".into());
         let key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     fn after_time_verifier(caveat: &ByteString) -> bool {
@@ -211,96 +209,84 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_caveat() {
-        let mut macaroon =
-            Macaroon::create("http://example.org/", b"this is the key", "keyid".into()).unwrap();
+        let key = crypto::generate_derived_key(b"this is the key");
+        let mut macaroon = Macaroon::create("http://example.org/", &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_first_party_caveat("time > 2010-01-01T00:00".into());
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
         verifier.satisfy_general(after_time_verifier);
-        let key = crypto::generate_derived_key(b"this is the key");
-        assert!(macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap()
     }
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_fails_general() {
-        let mut macaroon =
-            Macaroon::create("http://example.org/", b"this is the key", "keyid".into()).unwrap();
+        let key = crypto::generate_derived_key(b"this is the key");
+        let mut macaroon = Macaroon::create("http://example.org/", &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_first_party_caveat("time > 3010-01-01T00:00".into());
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
         verifier.satisfy_general(after_time_verifier);
-        let key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_incomplete_verifier() {
-        let key = b"this is the key";
-        let mut macaroon = Macaroon::create("http://example.org/", key, "keyid".into()).unwrap();
+        let key = crypto::generate_derived_key(b"this is the key");
+        let mut macaroon = Macaroon::create("http://example.org/", &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_first_party_caveat("time > 2010-01-01T00:00".into());
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
-        assert!(!macaroon.verify(key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &key, Default::default())
+            .unwrap_err();
     }
 
     #[test]
     fn test_macaroon_third_party_caveat() {
+        let root_key = crypto::generate_derived_key(b"this is the key");
+        let another_key = crypto::generate_derived_key(b"this is another key");
         let mut macaroon =
-            Macaroon::create("http://example.org/", b"this is the key", "keyid".into()).unwrap();
-        macaroon.add_third_party_caveat(
-            "http://auth.mybank/",
-            b"this is another key",
-            "other keyid".into(),
-        );
-        let mut discharge = Macaroon::create(
-            "http://auth.mybank/",
-            b"this is another key",
-            "other keyid".into(),
-        )
-        .unwrap();
+            Macaroon::create("http://example.org/", &root_key, "keyid".into()).unwrap();
+        macaroon.add_third_party_caveat("http://auth.mybank/", &another_key, "other keyid".into());
+        let mut discharge =
+            Macaroon::create("http://auth.mybank/", &another_key, "other keyid".into()).unwrap();
         discharge.add_first_party_caveat("time > 2010-01-01T00:00".into());
         macaroon.bind(&mut discharge);
-        let mut verifier = Verifier::new();
+        let mut verifier = Verifier::default();
         verifier.satisfy_general(after_time_verifier);
-        verifier.add_discharge_macaroons(&[discharge]);
-        let root_key = crypto::generate_derived_key(b"this is the key");
-        assert!(macaroon.verify(&root_key, &mut verifier).unwrap());
+        verifier
+            .verify(&macaroon, &root_key, vec![discharge])
+            .unwrap()
     }
 
     #[test]
     fn test_macaroon_third_party_caveat_with_cycle() {
-        let mut macaroon =
-            Macaroon::create("http://example.org/", b"this is the key", "keyid".into()).unwrap();
-        macaroon.add_third_party_caveat(
-            "http://auth.mybank/",
-            b"this is another key",
-            "other keyid".into(),
-        );
-        let mut discharge = Macaroon::create(
-            "http://auth.mybank/",
-            b"this is another key",
-            "other keyid".into(),
-        )
-        .unwrap();
-        discharge.add_third_party_caveat(
-            "http://auth.mybank/",
-            b"this is another key",
-            "other keyid".into(),
-        );
-        macaroon.bind(&mut discharge);
-        let mut verifier = Verifier::new();
-        verifier.satisfy_general(after_time_verifier);
-        verifier.add_discharge_macaroons(&[discharge]);
         let root_key = crypto::generate_derived_key(b"this is the key");
-        assert!(!macaroon.verify(&root_key, &mut verifier).unwrap());
+        let another_key = crypto::generate_derived_key(b"this is another key");
+        let mut macaroon =
+            Macaroon::create("http://example.org/", &root_key, "keyid".into()).unwrap();
+        macaroon.add_third_party_caveat("http://auth.mybank/", &another_key, "other keyid".into());
+        let mut discharge =
+            Macaroon::create("http://auth.mybank/", &another_key, "other keyid".into()).unwrap();
+        discharge.add_third_party_caveat("http://auth.mybank/", &another_key, "other keyid".into());
+        macaroon.bind(&mut discharge);
+        let mut verifier = Verifier::default();
+        verifier.satisfy_general(after_time_verifier);
+        verifier
+            .verify(&macaroon, &root_key, vec![discharge])
+            .unwrap_err();
     }
 }

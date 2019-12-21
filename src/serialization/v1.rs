@@ -157,6 +157,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
+    use crypto;
     use ByteString;
     use Caveat;
     use Macaroon;
@@ -218,11 +219,19 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon: Macaroon =
-            Macaroon::create("http://example.org/", b"my key", "keyid".into()).unwrap();
+        let mut macaroon: Macaroon = Macaroon::create(
+            "http://example.org/",
+            &crypto::generate_derived_key(b"my key"),
+            "keyid".into(),
+        )
+        .unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat".into());
+        macaroon.add_third_party_caveat(
+            "https://auth.mybank.com",
+            &crypto::generate_derived_key(b"caveat key"),
+            "caveat".into(),
+        );
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();
         let deserialized = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, deserialized);
