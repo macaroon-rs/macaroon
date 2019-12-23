@@ -1,4 +1,5 @@
 use crypto;
+use crypto::MacaroonKey;
 use error::MacaroonError;
 use std::fmt::Debug;
 use ByteString;
@@ -41,7 +42,7 @@ impl ThirdParty {
 }
 
 impl Caveat {
-    pub fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
+    pub fn sign(&self, key: &MacaroonKey) -> MacaroonKey {
         match self {
             Self::FirstParty(fp) => crypto::hmac(key, &fp.predicate),
             Self::ThirdParty(tp) => crypto::hmac2(key, &tp.verifier_id, &tp.id),

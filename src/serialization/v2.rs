@@ -55,7 +55,7 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
         }
     }
     buffer.push(EOS);
-    serialize_field(SIGNATURE, macaroon.signature(), &mut buffer);
+    serialize_field(SIGNATURE, &macaroon.signature(), &mut buffer);
     Ok(buffer)
 }
 
@@ -206,10 +206,9 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
                 tag = deserializer.get_tag()?;
             }
             _ => {
-                return Err(MacaroonError::DeserializationError(String::from(
-                    "Unexpected caveat \
-                     tag found",
-                )))
+                return Err(MacaroonError::DeserializationError(
+                    "Unexpected caveat tag found".into(),
+                ))
             }
         }
     }
@@ -217,15 +216,15 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     if tag == SIGNATURE {
         let sig: Vec<u8> = deserializer.get_field()?;
         if sig.len() != 32 {
-            return Err(MacaroonError::DeserializationError(String::from(
-                "Bad signature length",
-            )));
+            return Err(MacaroonError::DeserializationError(
+                "Bad signature length".into(),
+            ));
         }
         builder.set_signature(&sig);
     } else {
-        return Err(MacaroonError::DeserializationError(String::from(
-            "Unexpected tag found",
-        )));
+        return Err(MacaroonError::DeserializationError(
+            "Unexpected tag found".into(),
+        ));
     }
     Ok(builder.build()?)
 }
@@ -234,10 +233,10 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 mod tests {
     use caveat;
     use caveat::Caveat;
-    use crypto;
     use serialization::macaroon_builder::MacaroonBuilder;
     use ByteString;
     use Macaroon;
+    use MacaroonKey;
 
     #[test]
     fn test_deserialize() {
@@ -261,7 +260,7 @@ mod tests {
             _ => ByteString::default(),
         };
         assert_eq!(ByteString::from("user = alice"), predicate);
-        assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
+        assert_eq!(MacaroonKey::from(SIGNATURE), macaroon.signature());
     }
 
     #[test]
@@ -286,17 +285,13 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon = Macaroon::create(
-            "http://example.org/",
-            &crypto::generate_derived_key(b"key"),
-            "keyid".into(),
-        )
-        .unwrap();
+        let mut macaroon =
+            Macaroon::create("http://example.org/", &"key".into(), "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com",
-            &crypto::generate_derived_key(b"caveat key"),
+            &"caveat key".into(),
             "caveat".into(),
         );
         let serialized = super::serialize(&macaroon).unwrap();

@@ -2,13 +2,14 @@ use caveat::Caveat;
 use error::MacaroonError;
 use ByteString;
 use Macaroon;
+use MacaroonKey;
 use Result;
 
 #[derive(Default)]
 pub struct MacaroonBuilder {
     identifier: ByteString,
     location: Option<String>,
-    signature: [u8; 32],
+    signature: MacaroonKey,
     caveats: Vec<Caveat>,
 }
 

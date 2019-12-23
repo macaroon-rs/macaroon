@@ -42,7 +42,7 @@ impl Serialization {
             c: Vec::new(),
             s: None,
             s64: Some(base64::encode_config(
-                macaroon.signature(),
+                &macaroon.signature(),
                 base64::URL_SAFE,
             )),
         };
@@ -121,18 +121,20 @@ impl Macaroon {
             }
         };
 
-        builder.set_signature(&match ser.s {
+        let raw_sig = match ser.s {
             Some(sig) => sig,
             None => match ser.s64 {
                 Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
                 None => {
-                    return Err(MacaroonError::DeserializationError(String::from(
-                        "No signature \
-                         found",
-                    )))
-                }
+                    return Err(MacaroonError::DeserializationError("No signature found".into()))
+                },
             },
-        });
+        };
+        if raw_sig.len() != 32 {
+            return Err(MacaroonError::DeserializationError("Illegal signature length".into()));
+        }
+
+        builder.set_signature(&raw_sig);
 
         let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
@@ -189,10 +191,10 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 #[cfg(test)]
 mod tests {
     use super::super::Format;
-    use crypto;
     use ByteString;
     use Caveat;
     use Macaroon;
+    use MacaroonKey;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                    \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
@@ -220,17 +222,17 @@ mod tests {
             _ => ByteString::default(),
         };
         assert_eq!(ByteString::from("user = alice"), predicate);
-        assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
+        assert_eq!(MacaroonKey::from(SIGNATURE), macaroon.signature());
     }
 
     #[test]
     fn test_serialize_deserialize() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", &SIGNATURE, "keyid".into()).unwrap();
+            Macaroon::create("http://example.org/", &SIGNATURE.into(), "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com/",
-            &crypto::generate_derived_key(b"my key"),
+            &"my key".into(),
             "keyid".into(),
         );
         let serialized = macaroon.serialize(Format::V2JSON).unwrap();
