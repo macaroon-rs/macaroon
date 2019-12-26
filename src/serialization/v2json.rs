@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize() {
         let mut macaroon =
-            Macaroon::create("http://example.org/", &SIGNATURE.into(), "keyid".into()).unwrap();
+            Macaroon::create(Some("http://example.org/".into()), &SIGNATURE.into(), "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com/",

@@ -36,8 +36,8 @@
 //! // Create our key
 //! let key = "key".into();
 //!
-//! // Create our macaroon
-//! let mut macaroon = match Macaroon::create("location", &key, "id".into()) {
+//! // Create our macaroon. A location is optional.
+//! let mut macaroon = match Macaroon::create(Some("location".into()), &key, "id".into()) {
 //!     Ok(macaroon) => macaroon,
 //!     Err(error) => panic!("Error creating macaroon: {:?}", error),
 //! };
@@ -71,7 +71,7 @@
 //! // When we're ready to verify a third-party caveat, we use the location
 //! // (in this case, "https://auth.mybank") to retrieve the discharge macaroons we use to verify.
 //! // These would be created by the third party like so:
-//! let mut discharge = match Macaroon::create("http://auth.mybank/",
+//! let mut discharge = match Macaroon::create(Some("http://auth.mybank/".into()),
 //!                                            &other_key,
 //!                                            "caveat id".into()) {
 //!     Ok(discharge) => discharge,
@@ -227,9 +227,13 @@ impl Macaroon {
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
-    pub fn create(location: &str, key: &MacaroonKey, identifier: ByteString) -> Result<Macaroon> {
+    pub fn create(
+        location: Option<String>,
+        key: &MacaroonKey,
+        identifier: ByteString,
+    ) -> Result<Macaroon> {
         let macaroon: Macaroon = Macaroon {
-            location: Some(location.into()),
+            location,
             identifier: identifier.clone(),
             signature: crypto::hmac(key, &identifier),
             caveats: Vec::new(),
@@ -376,7 +380,7 @@ mod tests {
         ]
         .into();
         let key: MacaroonKey = b"this is a super duper secret key".into();
-        let macaroon_res = Macaroon::create("location", &key, "identifier".into());
+        let macaroon_res = Macaroon::create(Some("location".into()), &key, "identifier".into());
         assert!(macaroon_res.is_ok());
         let macaroon = macaroon_res.unwrap();
         assert!(macaroon.location.is_some());
@@ -389,7 +393,8 @@ mod tests {
     #[test]
     fn create_invalid_macaroon() {
         let key: MacaroonKey = "this is a super duper secret key".into();
-        let macaroon_res: Result<Macaroon> = Macaroon::create("location", &key, "".into());
+        let macaroon_res: Result<Macaroon> =
+            Macaroon::create(Some("location".into()), &key, "".into());
         assert!(macaroon_res.is_err());
     }
 
@@ -401,7 +406,8 @@ mod tests {
         ]
         .into();
         let key: MacaroonKey = b"this is a super duper secret key".into();
-        let mut macaroon = Macaroon::create("location", &key, "identifier".into()).unwrap();
+        let mut macaroon =
+            Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         macaroon.add_first_party_caveat("predicate".into());
         assert_eq!(1, macaroon.caveats.len());
         let predicate = match &macaroon.caveats[0] {
@@ -416,7 +422,8 @@ mod tests {
     #[test]
     fn create_macaroon_with_third_party_caveat() {
         let key: MacaroonKey = "this is a super duper secret key".into();
-        let mut macaroon = Macaroon::create("location", &key, "identifier".into()).unwrap();
+        let mut macaroon =
+            Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         let location = "https://auth.mybank.com";
         let cav_key: MacaroonKey = "My key".into();
         let id = "My Caveat";
