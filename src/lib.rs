@@ -137,6 +137,12 @@ pub fn initialize() -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ByteString(pub Vec<u8>);
 
+impl AsRef<[u8]> for ByteString {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl From<&str> for ByteString {
     fn from(s: &str) -> ByteString {
         ByteString(s.as_bytes().to_vec())
@@ -315,7 +321,7 @@ impl Macaroon {
     /// A third-party caveat is a caveat which must be verified by a third party
     /// using macaroons provided by them (referred to as "discharge macaroons").
     pub fn add_third_party_caveat(&mut self, location: &str, key: &MacaroonKey, id: ByteString) {
-        let vid: Vec<u8> = crypto::encrypt_key(&self.signature, *key);
+        let vid: Vec<u8> = crypto::encrypt_key(&self.signature, key);
         let caveat: caveat::Caveat = caveat::new_third_party(id, ByteString(vid), location);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(caveat);
@@ -330,11 +336,8 @@ impl Macaroon {
     /// that the discharge macaroons aren't re-used in some other context, we bind them to the original
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
-        discharge.signature = crypto::hmac2(
-            &[0; 32].into(),
-            &self.signature.into(),
-            &discharge.signature.into(),
-        );
+        let zero_key: MacaroonKey = [0; 32].into();
+        discharge.signature = crypto::hmac2(&zero_key, &self.signature, &discharge.signature);
         debug!(
             "Macaroon::bind: original: {:?}, discharge: {:?}",
             self, discharge

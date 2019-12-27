@@ -46,7 +46,7 @@ impl Verifier {
         for c in m.caveats() {
             sig = match &c {
                 Caveat::ThirdParty(tp) => {
-                    let caveat_key = crypto::decrypt_key(sig, &tp.verifier_id().0)?;
+                    let caveat_key = crypto::decrypt_key(&sig, &tp.verifier_id().0)?;
                     let dm = discharge_set.borrow_mut().remove(&tp.id()).ok_or_else(|| MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
                     self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
                     c.sign(&sig)
@@ -71,7 +71,8 @@ impl Verifier {
         }
         // Check the bound signature equals the signature of the discharge
         // macaroon
-        let bound_sig = crypto::hmac2(&[0; 32].into(), &ByteString(root_sig.to_vec()), &sig.into());
+        let zero_key: MacaroonKey = [0; 32].into();
+        let bound_sig = crypto::hmac2(&zero_key, &ByteString(root_sig.to_vec()), &sig.into());
         if bound_sig != m.signature {
             return Err(MacaroonError::InvalidMacaroon("signature is not valid"));
         }
