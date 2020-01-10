@@ -1,5 +1,4 @@
 use crypto;
-use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use ByteString;
@@ -19,15 +18,13 @@ pub struct Verifier {
 
 impl Verifier {
     pub fn verify(&self, m: &Macaroon, key: &MacaroonKey, discharges: Vec<Macaroon>) -> Result<()> {
-        let discharge_set = &RefCell::new(
-            discharges
-                .iter()
-                .map(|d| (d.identifier.clone(), d.clone()))
-                .collect(),
-        );
-        self.verify_with_sig(&m.signature, m, key, discharge_set)?;
+        let mut discharge_set = discharges
+            .iter()
+            .map(|d| (d.identifier.clone(), d.clone()))
+            .collect::<HashMap<ByteString, Macaroon>>();
+        self.verify_with_sig(&m.signature, m, key, &mut discharge_set)?;
         // Now check that all discharges were used
-        if !discharge_set.borrow().is_empty() {
+        if !discharge_set.is_empty() {
             return Err(MacaroonError::InvalidMacaroon(
                 "all discharge macaroons were not used",
             ));
@@ -40,14 +37,14 @@ impl Verifier {
         root_sig: &MacaroonKey,
         m: &Macaroon,
         key: &MacaroonKey,
-        discharge_set: &RefCell<HashMap<ByteString, Macaroon>>,
+        discharge_set: &mut HashMap<ByteString, Macaroon>,
     ) -> Result<()> {
         let mut sig = crypto::hmac(key, &m.identifier());
         for c in m.caveats() {
             sig = match &c {
                 Caveat::ThirdParty(tp) => {
                     let caveat_key = crypto::decrypt_key(&sig, &tp.verifier_id().0)?;
-                    let dm = discharge_set.borrow_mut().remove(&tp.id()).ok_or_else(|| MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
+                    let dm = discharge_set.remove(&tp.id()).ok_or_else(|| MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
                     self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
                     c.sign(&sig)
                 }

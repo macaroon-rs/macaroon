@@ -36,8 +36,8 @@ impl Serialization {
         let mut serialized: Serialization = Serialization {
             v: 2,
             i: None,
-            i64: Some(macaroon.identifier().clone()),
-            l: macaroon.location().clone(),
+            i64: Some(macaroon.identifier()),
+            l: macaroon.location(),
             l64: None,
             c: Vec::new(),
             s: None,
@@ -126,12 +126,16 @@ impl Macaroon {
             None => match ser.s64 {
                 Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
                 None => {
-                    return Err(MacaroonError::DeserializationError("No signature found".into()))
-                },
+                    return Err(MacaroonError::DeserializationError(
+                        "No signature found".into(),
+                    ))
+                }
             },
         };
         if raw_sig.len() != 32 {
-            return Err(MacaroonError::DeserializationError("Illegal signature length".into()));
+            return Err(MacaroonError::DeserializationError(
+                "Illegal signature length".into(),
+            ));
         }
 
         builder.set_signature(&raw_sig);
@@ -227,8 +231,12 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon =
-            Macaroon::create(Some("http://example.org/".into()), &SIGNATURE.into(), "keyid".into()).unwrap();
+        let mut macaroon = Macaroon::create(
+            Some("http://example.org/".into()),
+            &SIGNATURE.into(),
+            "keyid".into(),
+        )
+        .unwrap();
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com/",
