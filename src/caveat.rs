@@ -1,9 +1,9 @@
 use crypto;
+use crypto::MacaroonKey;
 use error::MacaroonError;
 use std::fmt::Debug;
-use verifier::Verifier;
 use ByteString;
-use Macaroon;
+use Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Caveat {
@@ -42,24 +42,7 @@ impl ThirdParty {
 }
 
 impl Caveat {
-    // TODO: See if we can just get rid of this function entirely and move all the logic to the verifier
-    pub fn verify(
-        &self,
-        macaroon: &Macaroon,
-        verifier: &mut Verifier,
-    ) -> Result<bool, MacaroonError> {
-        let result = verifier.verify(self, macaroon);
-        if let Ok(false) = result {
-            info!(
-                "Caveat {:?} of macaroon {:?} failed verification",
-                self, macaroon
-            );
-        }
-        verifier.update_signature(|t| self.sign(t));
-        result
-    }
-
-    pub fn sign(&self, key: &[u8; 32]) -> [u8; 32] {
+    pub fn sign(&self, key: &MacaroonKey) -> MacaroonKey {
         match self {
             Self::FirstParty(fp) => crypto::hmac(key, &fp.predicate),
             Self::ThirdParty(tp) => crypto::hmac2(key, &tp.verifier_id, &tp.id),
@@ -111,7 +94,7 @@ impl CaveatBuilder {
         self.location.is_some()
     }
 
-    pub fn build(self) -> Result<Caveat, MacaroonError> {
+    pub fn build(self) -> Result<Caveat> {
         if self.id.is_none() {
             return Err(MacaroonError::BadMacaroon("No identifier found"));
         }

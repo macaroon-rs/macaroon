@@ -28,13 +28,16 @@
 //!
 //! # Example
 //! ```
-//! use macaroon::{Macaroon, Verifier};
+//! use macaroon::{Macaroon, Verifier, MacaroonKey};
 //!
 //! // Initialize to make crypto primitives thread-safe
 //! macaroon::initialize().unwrap(); // Force panic if initialization fails
 //!
-//! // Create our macaroon
-//! let mut macaroon = match Macaroon::create("location", b"key", "id".into()) {
+//! // Create our key
+//! let key = "key".into();
+//!
+//! // Create our macaroon. A location is optional.
+//! let mut macaroon = match Macaroon::create(Some("location".into()), &key, "id".into()) {
 //!     Ok(macaroon) => macaroon,
 //!     Err(error) => panic!("Error creating macaroon: {:?}", error),
 //! };
@@ -46,27 +49,30 @@
 //!
 //! // Now we verify the macaroon
 //! // First we create the verifier
-//! let mut verifier = Verifier::new();
+//! let mut verifier = Verifier::default();
 //!
 //! // We assert that the account number is "12345678"
 //! verifier.satisfy_exact("account = 12345678".into());
 //!
 //! // Now we verify the macaroon. It should return `Ok(true)` if the user is authorized
-//! match macaroon.verify(b"key", &mut verifier) {
-//!     Ok(true) => println!("Macaroon verified!"),
-//!     Ok(false) => println!("Macaroon verification failed"),
+//! match verifier.verify(&macaroon, &key, Default::default()) {
+//!     Ok(_) => println!("Macaroon verified!"),
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
 //! }
 //!
 //! // Now, let's add a third-party caveat, which just says that we need our third party
 //! // to authorize this for us as well.
-//! macaroon.add_third_party_caveat("https://auth.mybank", b"different key", "caveat id".into());
+//!
+//! // Create a key for the third party caveat
+//! let other_key = "different key".into();
+//!
+//! macaroon.add_third_party_caveat("https://auth.mybank", &other_key, "caveat id".into());
 //!
 //! // When we're ready to verify a third-party caveat, we use the location
 //! // (in this case, "https://auth.mybank") to retrieve the discharge macaroons we use to verify.
 //! // These would be created by the third party like so:
-//! let mut discharge = match Macaroon::create("http://auth.mybank/",
-//!                                            b"different key",
+//! let mut discharge = match Macaroon::create(Some("http://auth.mybank/".into()),
+//!                                            &other_key,
 //!                                            "caveat id".into()) {
 //!     Ok(discharge) => discharge,
 //!     Err(error) => panic!("Error creating discharge macaroon: {:?}", error),
@@ -79,10 +85,8 @@
 //!
 //! // Then we can verify using the same verifier (which will verify both the existing
 //! // first-party caveat and the third party one)
-//! verifier.add_discharge_macaroons(&vec![discharge]);
-//! match macaroon.verify(b"key", &mut verifier) {
-//!     Ok(true) => println!("Macaroon verified!"),
-//!     Ok(false) => println!("Macaroon verification failed"),
+//! match verifier.verify(&macaroon, &key, vec![discharge]) {
+//!     Ok(_) => println!("Macaroon verified!"),
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
 //! }
 //! ```
@@ -100,12 +104,13 @@ extern crate serde_json;
 extern crate sodiumoxide;
 
 mod caveat;
-mod crypto;
+pub mod crypto;
 pub mod error;
 mod serialization;
 pub mod verifier;
 
 pub use caveat::Caveat;
+pub use crypto::MacaroonKey;
 pub use error::MacaroonError;
 pub use serialization::Format;
 pub use verifier::Verifier;
@@ -114,10 +119,12 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
+pub type Result<T> = std::result::Result<T, MacaroonError>;
+
 /// Initializes the cryptographic libraries. Although you can use libmacaroon-rs without
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
-pub fn initialize() -> Result<(), MacaroonError> {
+pub fn initialize() -> Result<()> {
     match sodiumoxide::init() {
         Ok(_) => Ok(()),
         Err(_) => Err(MacaroonError::InitializationError),
@@ -129,6 +136,12 @@ pub fn initialize() -> Result<(), MacaroonError> {
 // convert to and from base64 strings
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ByteString(pub Vec<u8>);
+
+impl AsRef<[u8]> for ByteString {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl From<&str> for ByteString {
     fn from(s: &str) -> ByteString {
@@ -145,6 +158,12 @@ impl From<String> for ByteString {
 impl From<[u8; 32]> for ByteString {
     fn from(b: [u8; 32]) -> ByteString {
         ByteString(b.to_vec())
+    }
+}
+
+impl From<MacaroonKey> for ByteString {
+    fn from(k: MacaroonKey) -> ByteString {
+        ByteString(k.to_vec())
     }
 }
 
@@ -203,26 +222,26 @@ impl<'de> Deserialize<'de> for ByteString {
 pub struct Macaroon {
     identifier: ByteString,
     location: Option<String>,
-    signature: [u8; 32],
+    signature: MacaroonKey,
     caveats: Vec<Caveat>,
 }
 
 impl Macaroon {
-    /// Construct a macaroon, given a location and identifier, and a key to sign it with
+    /// Construct a macaroon, given a location and identifier, and a key to sign
+    /// it with. You can use a bare str or &[u8] containing arbitrary data with
+    /// `into` to automatically generate a suitable key
     ///
     /// # Errors
     /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
     pub fn create(
-        location: &str,
-        key: &[u8],
+        location: Option<String>,
+        key: &MacaroonKey,
         identifier: ByteString,
-    ) -> Result<Macaroon, MacaroonError> {
-        let macaroon_key = crypto::generate_derived_key(key);
-
+    ) -> Result<Macaroon> {
         let macaroon: Macaroon = Macaroon {
-            location: Some(location.into()),
+            location,
             identifier: identifier.clone(),
-            signature: crypto::generate_signature(&macaroon_key, &identifier),
+            signature: crypto::hmac(key, &identifier),
             caveats: Vec::new(),
         };
         debug!("Macaroon::create: {:?}", macaroon);
@@ -240,12 +259,12 @@ impl Macaroon {
     }
 
     /// Returns the macaroon's signature
-    pub fn signature(&self) -> &[u8; 32] {
-        &self.signature
+    pub fn signature(&self) -> MacaroonKey {
+        self.signature
     }
 
-    fn caveats(&self) -> &Vec<Caveat> {
-        &self.caveats
+    pub fn caveats(&self) -> Vec<Caveat> {
+        self.caveats.clone()
     }
 
     /// Retrieve a list of the first-party caveats for the macaroon
@@ -273,7 +292,7 @@ impl Macaroon {
     }
 
     /// Validate the macaroon - used mainly for validating deserialized macaroons
-    fn validate(self) -> Result<Self, MacaroonError> {
+    fn validate(self) -> Result<Self> {
         if self.identifier.0.is_empty() {
             return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
         }
@@ -301,9 +320,8 @@ impl Macaroon {
     ///
     /// A third-party caveat is a caveat which must be verified by a third party
     /// using macaroons provided by them (referred to as "discharge macaroons").
-    pub fn add_third_party_caveat(&mut self, location: &str, key: &[u8], id: ByteString) {
-        let derived_key: [u8; 32] = crypto::generate_derived_key(key);
-        let vid: Vec<u8> = crypto::encrypt(self.signature, &derived_key);
+    pub fn add_third_party_caveat(&mut self, location: &str, key: &MacaroonKey, id: ByteString) {
+        let vid: Vec<u8> = crypto::encrypt_key(&self.signature, key);
         let caveat: caveat::Caveat = caveat::new_third_party(id, ByteString(vid), location);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(caveat);
@@ -318,99 +336,16 @@ impl Macaroon {
     /// that the discharge macaroons aren't re-used in some other context, we bind them to the original
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
-        discharge.signature = crypto::hmac2(
-            &[0; 32],
-            &self.signature.into(),
-            &discharge.signature.into(),
-        );
+        let zero_key: MacaroonKey = [0; 32].into();
+        discharge.signature = crypto::hmac2(&zero_key, &self.signature, &discharge.signature);
         debug!(
             "Macaroon::bind: original: {:?}, discharge: {:?}",
             self, discharge
         );
     }
 
-    /// Verify a macaroon
-    ///
-    /// Verifies that the bearer of the macaroon is authorized to perform the actions requested.
-    /// Takes the original key used to create the macaroon, and a verifier which must contain
-    /// all criteria used to satisfy the caveats in the macaroon, plus any discharge macaroons
-    /// to satisfy any third-party caveats, which must be already bound to this macaroon.
-    ///
-    /// Returns `Ok(true)` if authorized, `Ok(false)` if not, and `MacaroonError` if there was an error
-    /// verifying the macaroon.
-    pub fn verify(&self, key: &[u8], verifier: &mut Verifier) -> Result<bool, MacaroonError> {
-        if !self.verify_signature(key) {
-            info!(
-                "Macaroon::verify: Macaroon {:?} failed signature verification",
-                self
-            );
-            return Ok(false);
-        }
-        verifier.reset();
-        verifier.set_signature(crypto::generate_signature(key, &self.identifier));
-        self.verify_caveats(verifier)
-    }
-
-    /// Generate a signature for the given macaroon
-    fn generate_signature(&self, key: &[u8]) -> [u8; 32] {
-        let signature: [u8; 32] = crypto::generate_signature(key, &self.identifier);
-        self.caveats
-            .iter()
-            .fold(signature, |sig, caveat| caveat.sign(&sig))
-    }
-
-    /// Verify the signature of the macaroon given the key
-    fn verify_signature(&self, key: &[u8]) -> bool {
-        let signature = self.generate_signature(key);
-        signature == self.signature
-    }
-
-    fn verify_caveats(&self, verifier: &mut Verifier) -> Result<bool, MacaroonError> {
-        for caveat in &self.caveats {
-            match caveat.verify(self, verifier) {
-                Ok(true) => (),
-                Ok(false) => return Ok(false),
-                Err(error) => return Err(error),
-            }
-        }
-
-        Ok(true)
-    }
-
-    fn verify_as_discharge(
-        &self,
-        verifier: &mut Verifier,
-        root_macaroon: &Macaroon,
-        key: &[u8],
-    ) -> Result<bool, MacaroonError> {
-        let signature = self.generate_signature(key);
-        if !self.verify_discharge_signature(root_macaroon, &signature) {
-            info!(
-                "Macaroon::verify_as_discharge: Signature of discharge macaroon {:?} failed \
-                 verification",
-                self
-            );
-            return Ok(false);
-        }
-        self.verify_caveats(verifier)
-    }
-
-    fn verify_discharge_signature(&self, root_macaroon: &Macaroon, signature: &[u8; 32]) -> bool {
-        let discharge_signature = crypto::hmac2(
-            &[0; 32],
-            &root_macaroon.signature.into(),
-            &signature.clone().into(),
-        );
-        debug!(
-            "Macaroon::verify_discharge_signature: self.signature = {:?}, discharge signature \
-             = {:?}",
-            self.signature, discharge_signature
-        );
-        self.signature == discharge_signature
-    }
-
     /// Serialize the macaroon using the serialization format provided
-    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>, MacaroonError> {
+    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>> {
         match format {
             serialization::Format::V1 => serialization::v1::serialize(self),
             serialization::Format::V2 => serialization::v2::serialize(self),
@@ -419,7 +354,7 @@ impl Macaroon {
     }
 
     /// Deserialize a macaroon
-    pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+    pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2json::deserialize(data)?,
             '\x02' => serialization::v2::deserialize(data)?,
@@ -437,41 +372,45 @@ mod tests {
     use super::ByteString;
     use super::Caveat;
     use super::Macaroon;
-    use error::MacaroonError;
+    use super::MacaroonKey;
+    use Result;
 
     #[test]
     fn create_macaroon() {
-        let signature = [
-            142, 227, 10, 28, 80, 115, 181, 176, 112, 56, 115, 95, 128, 156, 39, 20, 135, 17, 207,
-            204, 2, 80, 90, 249, 68, 40, 100, 60, 47, 220, 5, 224,
-        ];
-        let key: &[u8; 32] = b"this is a super duper secret key";
-        let macaroon_res = Macaroon::create("location", key, "identifier".into());
+        let signature: MacaroonKey = [
+            118, 104, 143, 143, 101, 76, 166, 146, 84, 159, 42, 235, 57, 143, 191, 198, 87, 96, 27,
+            165, 196, 100, 12, 178, 175, 29, 112, 1, 253, 179, 216, 58,
+        ]
+        .into();
+        let key: MacaroonKey = b"this is a super duper secret key".into();
+        let macaroon_res = Macaroon::create(Some("location".into()), &key, "identifier".into());
         assert!(macaroon_res.is_ok());
         let macaroon = macaroon_res.unwrap();
         assert!(macaroon.location.is_some());
         assert_eq!("location", macaroon.location.unwrap());
         assert_eq!(ByteString::from("identifier"), macaroon.identifier);
-        assert_eq!(signature.to_vec(), macaroon.signature);
+        assert_eq!(signature, macaroon.signature);
         assert_eq!(0, macaroon.caveats.len());
     }
 
     #[test]
     fn create_invalid_macaroon() {
-        let key: &[u8; 32] = b"this is a super duper secret key";
-        let macaroon_res: Result<Macaroon, MacaroonError> =
-            Macaroon::create("location", key, "".into());
+        let key: MacaroonKey = "this is a super duper secret key".into();
+        let macaroon_res: Result<Macaroon> =
+            Macaroon::create(Some("location".into()), &key, "".into());
         assert!(macaroon_res.is_err());
     }
 
     #[test]
     fn create_macaroon_with_first_party_caveat() {
-        let signature = [
-            132, 133, 51, 243, 147, 201, 178, 7, 193, 179, 36, 128, 4, 228, 17, 84, 166, 81, 30,
-            152, 15, 51, 47, 33, 196, 60, 20, 109, 163, 151, 133, 18,
-        ];
-        let key: &[u8; 32] = b"this is a super duper secret key";
-        let mut macaroon = Macaroon::create("location", key, "identifier".into()).unwrap();
+        let signature: MacaroonKey = [
+            68, 26, 16, 191, 99, 247, 36, 188, 53, 140, 17, 49, 218, 48, 129, 178, 14, 196, 187,
+            82, 117, 4, 232, 42, 251, 131, 86, 98, 133, 201, 45, 6,
+        ]
+        .into();
+        let key: MacaroonKey = b"this is a super duper secret key".into();
+        let mut macaroon =
+            Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         macaroon.add_first_party_caveat("predicate".into());
         assert_eq!(1, macaroon.caveats.len());
         let predicate = match &macaroon.caveats[0] {
@@ -479,18 +418,19 @@ mod tests {
             _ => ByteString::default(),
         };
         assert_eq!(ByteString::from("predicate"), predicate);
-        assert_eq!(signature.to_vec(), macaroon.signature);
+        assert_eq!(signature, macaroon.signature);
         assert_eq!(&macaroon.caveats[0], &macaroon.first_party_caveats()[0]);
     }
 
     #[test]
     fn create_macaroon_with_third_party_caveat() {
-        let key: &[u8; 32] = b"this is a super duper secret key";
-        let mut macaroon = Macaroon::create("location", key, "identifier".into()).unwrap();
+        let key: MacaroonKey = "this is a super duper secret key".into();
+        let mut macaroon =
+            Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         let location = "https://auth.mybank.com";
-        let cav_key = b"My key";
+        let cav_key: MacaroonKey = "My key".into();
         let id = "My Caveat";
-        macaroon.add_third_party_caveat(location, cav_key, id.into());
+        macaroon.add_third_party_caveat(location, &cav_key, id.into());
         assert_eq!(1, macaroon.caveats.len());
         let cav_id = match &macaroon.caveats[0] {
             Caveat::ThirdParty(tp) => tp.id(),

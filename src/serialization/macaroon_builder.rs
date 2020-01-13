@@ -2,12 +2,14 @@ use caveat::Caveat;
 use error::MacaroonError;
 use ByteString;
 use Macaroon;
+use MacaroonKey;
+use Result;
 
 #[derive(Default)]
 pub struct MacaroonBuilder {
     identifier: ByteString,
     location: Option<String>,
-    signature: [u8; 32],
+    signature: MacaroonKey,
     caveats: Vec<Caveat>,
 }
 
@@ -36,7 +38,7 @@ impl MacaroonBuilder {
         self.caveats.push(caveat);
     }
 
-    pub fn build(&self) -> Result<Macaroon, MacaroonError> {
+    pub fn build(&self) -> Result<Macaroon> {
         if self.identifier.0.is_empty() {
             return Err(MacaroonError::BadMacaroon("No identifier found"));
         }

@@ -7,6 +7,7 @@ use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
 use ByteString;
 use Macaroon;
+use Result;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
@@ -31,17 +32,17 @@ struct Serialization {
 }
 
 impl Serialization {
-    fn from_macaroon(macaroon: Macaroon) -> Result<Serialization, MacaroonError> {
+    fn from_macaroon(macaroon: Macaroon) -> Result<Serialization> {
         let mut serialized: Serialization = Serialization {
             v: 2,
             i: None,
-            i64: Some(macaroon.identifier().clone()),
-            l: macaroon.location().clone(),
+            i64: Some(macaroon.identifier()),
+            l: macaroon.location(),
             l64: None,
             c: Vec::new(),
             s: None,
             s64: Some(base64::encode_config(
-                macaroon.signature(),
+                &macaroon.signature(),
                 base64::URL_SAFE,
             )),
         };
@@ -77,7 +78,7 @@ impl Serialization {
 }
 
 impl Macaroon {
-    fn from_json(ser: Serialization) -> Result<Macaroon, MacaroonError> {
+    fn from_json(ser: Serialization) -> Result<Macaroon> {
         if ser.i.is_some() && ser.i64.is_some() {
             return Err(MacaroonError::DeserializationError(String::from(
                 "Found i and i64 fields",
@@ -120,18 +121,24 @@ impl Macaroon {
             }
         };
 
-        builder.set_signature(&match ser.s {
+        let raw_sig = match ser.s {
             Some(sig) => sig,
             None => match ser.s64 {
                 Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
                 None => {
-                    return Err(MacaroonError::DeserializationError(String::from(
-                        "No signature \
-                         found",
-                    )))
+                    return Err(MacaroonError::DeserializationError(
+                        "No signature found".into(),
+                    ))
                 }
             },
-        });
+        };
+        if raw_sig.len() != 32 {
+            return Err(MacaroonError::DeserializationError(
+                "Illegal signature length".into(),
+            ));
+        }
+
+        builder.set_signature(&raw_sig);
 
         let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
         for c in ser.c {
@@ -174,13 +181,13 @@ impl Macaroon {
     }
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let serialized: String =
         serde_json::to_string(&Serialization::from_macaroon(macaroon.clone())?)?;
     Ok(serialized.into_bytes())
 }
 
-pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     let v2j: Serialization = serde_json::from_slice(data)?;
     Macaroon::from_json(v2j)
 }
@@ -191,6 +198,7 @@ mod tests {
     use ByteString;
     use Caveat;
     use Macaroon;
+    use MacaroonKey;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                    \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
@@ -218,15 +226,23 @@ mod tests {
             _ => ByteString::default(),
         };
         assert_eq!(ByteString::from("user = alice"), predicate);
-        assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
+        assert_eq!(MacaroonKey::from(SIGNATURE), macaroon.signature());
     }
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon =
-            Macaroon::create("http://example.org/", &SIGNATURE, "keyid".into()).unwrap();
+        let mut macaroon = Macaroon::create(
+            Some("http://example.org/".into()),
+            &SIGNATURE.into(),
+            "keyid".into(),
+        )
+        .unwrap();
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_third_party_caveat("https://auth.mybank.com/", b"my key", "keyid".into());
+        macaroon.add_third_party_caveat(
+            "https://auth.mybank.com/",
+            &"my key".into(),
+            "keyid".into(),
+        );
         let serialized = macaroon.serialize(Format::V2JSON).unwrap();
         let other = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, other);

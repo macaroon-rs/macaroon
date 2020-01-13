@@ -3,6 +3,7 @@ use error::MacaroonError;
 use serialization::macaroon_builder::MacaroonBuilder;
 use ByteString;
 use Macaroon;
+use Result;
 
 // Version 2 fields
 const EOS: u8 = 0;
@@ -31,7 +32,7 @@ fn serialize_field(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
     buffer.extend(value);
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
+pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.push(2); // version
     if let Some(ref location) = macaroon.location() {
@@ -54,7 +55,7 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>, MacaroonError> {
         }
     }
     buffer.push(EOS);
-    serialize_field(SIGNATURE, macaroon.signature(), &mut buffer);
+    serialize_field(SIGNATURE, &macaroon.signature(), &mut buffer);
     Ok(buffer)
 }
 
@@ -68,7 +69,7 @@ impl<'r> Deserializer<'r> {
         Deserializer { data, index: 0 }
     }
 
-    fn get_byte(&mut self) -> Result<u8, MacaroonError> {
+    fn get_byte(&mut self) -> Result<u8> {
         if self.index > self.data.len() - 1 {
             return Err(MacaroonError::DeserializationError(String::from(
                 "Buffer overrun",
@@ -79,11 +80,11 @@ impl<'r> Deserializer<'r> {
         Ok(byte)
     }
 
-    pub fn get_tag(&mut self) -> Result<u8, MacaroonError> {
+    pub fn get_tag(&mut self) -> Result<u8> {
         self.get_byte()
     }
 
-    pub fn get_eos(&mut self) -> Result<u8, MacaroonError> {
+    pub fn get_eos(&mut self) -> Result<u8> {
         let eos = self.get_byte()?;
         match eos {
             EOS => Ok(eos),
@@ -93,7 +94,7 @@ impl<'r> Deserializer<'r> {
         }
     }
 
-    pub fn get_field(&mut self) -> Result<Vec<u8>, MacaroonError> {
+    pub fn get_field(&mut self) -> Result<Vec<u8>> {
         let size: usize = self.get_field_size()?;
         if size + self.index > self.data.len() {
             return Err(MacaroonError::DeserializationError(String::from(
@@ -107,7 +108,7 @@ impl<'r> Deserializer<'r> {
         Ok(field)
     }
 
-    fn get_field_size(&mut self) -> Result<usize, MacaroonError> {
+    fn get_field_size(&mut self) -> Result<usize> {
         let mut size: usize = 0;
         let mut shift: usize = 0;
         let mut byte: u8;
@@ -127,7 +128,7 @@ impl<'r> Deserializer<'r> {
     }
 }
 
-pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
+pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: Deserializer = Deserializer::new(data);
     if deserializer.get_byte()? != 2 {
@@ -205,10 +206,9 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
                 tag = deserializer.get_tag()?;
             }
             _ => {
-                return Err(MacaroonError::DeserializationError(String::from(
-                    "Unexpected caveat \
-                     tag found",
-                )))
+                return Err(MacaroonError::DeserializationError(
+                    "Unexpected caveat tag found".into(),
+                ))
             }
         }
     }
@@ -216,15 +216,15 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon, MacaroonError> {
     if tag == SIGNATURE {
         let sig: Vec<u8> = deserializer.get_field()?;
         if sig.len() != 32 {
-            return Err(MacaroonError::DeserializationError(String::from(
-                "Bad signature length",
-            )));
+            return Err(MacaroonError::DeserializationError(
+                "Bad signature length".into(),
+            ));
         }
         builder.set_signature(&sig);
     } else {
-        return Err(MacaroonError::DeserializationError(String::from(
-            "Unexpected tag found",
-        )));
+        return Err(MacaroonError::DeserializationError(
+            "Unexpected tag found".into(),
+        ));
     }
     Ok(builder.build()?)
 }
@@ -236,6 +236,7 @@ mod tests {
     use serialization::macaroon_builder::MacaroonBuilder;
     use ByteString;
     use Macaroon;
+    use MacaroonKey;
 
     #[test]
     fn test_deserialize() {
@@ -259,7 +260,7 @@ mod tests {
             _ => ByteString::default(),
         };
         assert_eq!(ByteString::from("user = alice"), predicate);
-        assert_eq!(SIGNATURE.to_vec(), macaroon.signature());
+        assert_eq!(MacaroonKey::from(SIGNATURE), macaroon.signature());
     }
 
     #[test]
@@ -284,10 +285,15 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon = Macaroon::create("http://example.org/", b"key", "keyid".into()).unwrap();
+        let mut macaroon =
+            Macaroon::create(Some("http://example.org/".into()), &"key".into(), "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_third_party_caveat("https://auth.mybank.com", b"caveat key", "caveat".into());
+        macaroon.add_third_party_caveat(
+            "https://auth.mybank.com",
+            &"caveat key".into(),
+            "caveat".into(),
+        );
         let serialized = super::serialize(&macaroon).unwrap();
         macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());

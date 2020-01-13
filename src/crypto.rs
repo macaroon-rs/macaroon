@@ -1,57 +1,148 @@
 use error::MacaroonError;
-use sodiumoxide::crypto::auth::hmacsha256::{self, Key, Tag};
+use sodiumoxide::crypto::auth::hmacsha512256::{authenticate, gen_key, Key, Tag};
 use sodiumoxide::crypto::secretbox;
-use ByteString;
+use std::borrow::Borrow;
+use std::ops::{Deref, DerefMut};
+use Result;
 
-const KEY_GENERATOR: &[u8; 32] = b"macaroons-key-generator\0\0\0\0\0\0\0\0\0";
+const KEY_GENERATOR: MacaroonKey = MacaroonKey(*b"macaroons-key-generator\0\0\0\0\0\0\0\0\0");
 
-pub fn generate_derived_key(key: &[u8]) -> [u8; 32] {
-    hmac(KEY_GENERATOR, &ByteString(key.to_vec()))
+// A convenience type for a MacaroonKey with helpful methods attached for
+// conversion. Using the default trait will return a randomly generated key
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MacaroonKey([u8; sodiumoxide::crypto::auth::KEYBYTES]);
+
+impl Default for MacaroonKey {
+    fn default() -> Self {
+        MacaroonKey(gen_key().0)
+    }
 }
 
-pub fn generate_signature(key: &[u8], text: &ByteString) -> [u8; 32] {
-    let mut key_bytes: [u8; 32] = [0; 32];
-    key_bytes[..key.len()].clone_from_slice(key);
-    hmac(&key_bytes, text)
+impl AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    fn as_ref(&self) -> &[u8; sodiumoxide::crypto::auth::KEYBYTES] {
+        &self.0
+    }
 }
 
-pub fn hmac(key: &[u8; 32], text: &ByteString) -> [u8; 32] {
-    let Tag(result_bytes) = hmacsha256::authenticate(&text.0, &Key(*key));
-    result_bytes
+impl AsRef<[u8]> for MacaroonKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
 }
 
-pub fn hmac2(key: &[u8; 32], text1: &ByteString, text2: &ByteString) -> [u8; 32] {
-    let tmp1: [u8; 32] = hmac(key, text1);
-    let tmp2: [u8; 32] = hmac(key, text2);
+impl Borrow<[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    fn borrow(&self) -> &[u8; sodiumoxide::crypto::auth::KEYBYTES] {
+        &self.0
+    }
+}
+
+impl Deref for MacaroonKey {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MacaroonKey {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<&str> for MacaroonKey {
+    fn from(s: &str) -> Self {
+        generate_derived_key(s.as_bytes())
+    }
+}
+
+impl From<&[u8]> for MacaroonKey {
+    fn from(b: &[u8]) -> Self {
+        generate_derived_key(b)
+    }
+}
+
+impl From<Key> for MacaroonKey {
+    fn from(k: Key) -> Self {
+        MacaroonKey(k.0)
+    }
+}
+
+impl From<[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    fn from(b: [u8; sodiumoxide::crypto::auth::KEYBYTES]) -> Self {
+        MacaroonKey(b)
+    }
+}
+
+impl From<&[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    fn from(b: &[u8; sodiumoxide::crypto::auth::KEYBYTES]) -> Self {
+        MacaroonKey(*b)
+    }
+}
+
+fn generate_derived_key(key: &[u8]) -> MacaroonKey {
+    hmac(&KEY_GENERATOR, key)
+}
+
+pub fn hmac<T, U>(key: &T, text: &U) -> MacaroonKey
+where
+    T: AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> + ?Sized,
+    U: AsRef<[u8]> + ?Sized,
+{
+    let Tag(result_bytes) = authenticate(text.as_ref(), &Key(*key.as_ref()));
+    MacaroonKey(result_bytes)
+}
+
+pub fn hmac2<T, U>(key: &T, text1: &U, text2: &U) -> MacaroonKey
+where
+    T: AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> + ?Sized,
+    U: AsRef<[u8]> + ?Sized,
+{
+    let MacaroonKey(tmp1) = hmac(key, text1);
+    let MacaroonKey(tmp2) = hmac(key, text2);
     let tmp = [tmp1, tmp2].concat();
-    hmac(key, &ByteString(tmp.to_vec()))
+    hmac(key, &tmp.to_vec())
 }
 
-pub fn encrypt(key: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt_key<T>(key: &T, plaintext: &T) -> Vec<u8>
+where
+    T: AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> + ?Sized,
+{
     let nonce = secretbox::gen_nonce();
-    let encrypted = secretbox::seal(plaintext, &nonce, &secretbox::Key(key));
+    let encrypted = secretbox::seal(plaintext.as_ref(), &nonce, &secretbox::Key(*key.as_ref()));
     let mut ret: Vec<u8> = Vec::new();
     ret.extend(&nonce.0);
     ret.extend(encrypted);
     ret
 }
 
-pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
-    if data.len() <= secretbox::NONCEBYTES + secretbox::MACBYTES {
-        error!("crypto::decrypt: Encrypted data {:?} too short", data);
+pub fn decrypt_key<T, U>(key: &T, data: &U) -> Result<MacaroonKey>
+where
+    T: AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> + ?Sized,
+    U: AsRef<[u8]> + ?Sized,
+{
+    let raw_data: &[u8] = data.as_ref();
+    if raw_data.len() <= secretbox::NONCEBYTES + secretbox::MACBYTES {
+        error!("crypto::decrypt: Encrypted data {:?} too short", raw_data);
         return Err(MacaroonError::DecryptionError("Encrypted data too short"));
     }
     let mut nonce: [u8; secretbox::NONCEBYTES] = [0; secretbox::NONCEBYTES];
-    nonce.clone_from_slice(&data[..secretbox::NONCEBYTES]);
+    nonce.clone_from_slice(&raw_data[..secretbox::NONCEBYTES]);
     let mut temp: Vec<u8> = Vec::new();
-    temp.extend(&data[secretbox::NONCEBYTES..]);
+    temp.extend(&raw_data[secretbox::NONCEBYTES..]);
     let ciphertext = temp.as_slice();
-    match secretbox::open(ciphertext, &secretbox::Nonce(nonce), &secretbox::Key(key)) {
-        Ok(plaintext) => Ok(plaintext),
+    match secretbox::open(
+        ciphertext,
+        &secretbox::Nonce(nonce),
+        &secretbox::Key(*key.as_ref()),
+    ) {
+        Ok(plaintext) => Ok(Key::from_slice(&plaintext)
+            .ok_or_else(|| MacaroonError::DecryptionError("given key is incorrect length"))?
+            .into()),
         Err(()) => {
             error!(
                 "crypto::decrypt: Unknown decryption error decrypting {:?}",
-                data
+                raw_data
             );
             Err(MacaroonError::DecryptionError("Unknown decryption error"))
         }
@@ -60,14 +151,14 @@ pub fn decrypt(key: [u8; 32], data: &[u8]) -> Result<Vec<u8>, MacaroonError> {
 
 #[cfg(test)]
 mod test {
-    use super::{decrypt, encrypt};
+    use super::{decrypt_key, encrypt_key, MacaroonKey};
 
     #[test]
     fn test_encrypt_decrypt() {
-        let secret = b"This is my secret";
-        let key = b"This is my secret key\0\0\0\0\0\0\0\0\0\0\0";
-        let encrypted = encrypt(*key, secret);
-        let decrypted = decrypt(*key, encrypted.as_slice()).unwrap();
-        assert_eq!(secret.to_vec(), decrypted);
+        let secret: MacaroonKey = "This is my encrypted key\0\0\0\0\0\0\0\0".into();
+        let key: MacaroonKey = "This is my secret key\0\0\0\0\0\0\0\0\0\0\0".into();
+        let encrypted = encrypt_key(&key, &secret);
+        let decrypted = decrypt_key(&key, &encrypted).unwrap();
+        assert_eq!(secret, decrypted);
     }
 }
