@@ -199,8 +199,8 @@ mod tests {
             Err(_) => return false,
         };
 
-        match time::strptime(&strcaveat[7..], "%Y-%m-%dT%H:%M") {
-            Ok(compare) => time::now() > compare,
+        match time::OffsetDateTime::parse(&strcaveat[7..], "%Y-%m-%dT%H:%M%z") {
+            Ok(compare) => time::OffsetDateTime::now_local() > compare,
             Err(_) => false,
         }
     }
@@ -212,7 +212,7 @@ mod tests {
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_first_party_caveat("time > 2010-01-01T00:00".into());
+        macaroon.add_first_party_caveat("time > 2010-01-01T00:00+0000".into());
         let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
@@ -229,7 +229,7 @@ mod tests {
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_first_party_caveat("time > 3010-01-01T00:00".into());
+        macaroon.add_first_party_caveat("time > 3010-01-01T00:00+0000".into());
         let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
@@ -246,7 +246,7 @@ mod tests {
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
-        macaroon.add_first_party_caveat("time > 2010-01-01T00:00".into());
+        macaroon.add_first_party_caveat("time > 2010-01-01T00:00+0000".into());
         let mut verifier = Verifier::default();
         verifier.satisfy_exact("account = 3735928559".into());
         verifier.satisfy_exact("user = alice".into());
@@ -272,7 +272,7 @@ mod tests {
             "other keyid".into(),
         )
         .unwrap();
-        discharge.add_first_party_caveat("time > 2010-01-01T00:00".into());
+        discharge.add_first_party_caveat("time > 2010-01-01T00:00+0000".into());
         macaroon.bind(&mut discharge);
         let mut verifier = Verifier::default();
         verifier.satisfy_general(after_time_verifier);
