@@ -1,3 +1,5 @@
+<img src="https://svgshare.com/i/JxB.svg" alt="Ferris holding French macaroons" width="200"/>
+
 # macaroon-rs
 
 Rust implementation of
