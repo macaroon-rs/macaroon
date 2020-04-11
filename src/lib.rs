@@ -121,7 +121,7 @@ use std::fmt;
 
 pub type Result<T> = std::result::Result<T, MacaroonError>;
 
-/// Initializes the cryptographic libraries. Although you can use libmacaroon-rs without
+/// Initializes the cryptographic libraries. Although you can use macaroon-rs without
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
 pub fn initialize() -> Result<()> {

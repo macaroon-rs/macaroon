@@ -1,17 +1,16 @@
-# libmacaroon-rs
+# macaroon-rs
 
 Rust implementation of
 [macaroons](https://research.google.com/pubs/pub41892.html).
 
 [![Build Status](https://github.com/deislabs/libmacaroon-rs/workflows/build_and_test/badge.svg?branch=master)](https://github.com/deislabs/libmacaroon-rs/actions)
 
-**NOTE:** This is a fork of the original libmacaroon-rs found
-[here](https://github.com/jacklund/libmacaroon-rs). We are currently working
-with [getting in touch](https://github.com/jacklund/libmacaroon-rs/issues/4)
+**NOTE:** This project builds on previous work done by [Deis Labs](https://github.com/deislabs/libmacaroon-rs)
+and the original [libmacaroon-rs](https://github.com/jacklund/libmacaroon-rs).
+We are currently working with [getting in touch](https://github.com/jacklund/libmacaroon-rs/issues/4)
 with the author and other interested parties to see if we can transfer the crate
-name to us as we are working on maintaining this. We have currently made some
-large breaking changes to the API. The full list of changes will be listed in
-the changelog once we release a new minor version.
+name to us as we are working on maintaining this. Large breaking changes have been made to the API of the [macaroon crate](https://crates.io/crates/macaroon). The full list of changes will be listed in
+the changelog once we release a new minor version for that same crate.
 
 ## What are Macaroons?
 
@@ -54,12 +53,14 @@ the above process.
 
 Until we release a new version and get the name in crates, you'll have to
 include this dependency like so in your `Cargo.toml`:
+
 ```
 [dependencies]
-macaroon = { git = "https://github.com/deislabs/libmacaroon-rs", branch = "master" }
+macaroon = { git = "https://github.com/macaroon-rs/macaroon-rs", branch = "master" }
 ```
 
 ### Examples
+
 ```rust
 use macaroon::{Macaroon, Verifier, MacaroonKey};
 
@@ -125,7 +126,8 @@ match verifier.verify(&macaroon, &key, vec![discharge]) {
 ```
 
 ## Backwards compatibility
-As this project is currently only released as a minor version, we expect to make
+
+As the original project is currently only released as a minor version, we expect to make
 breaking changes to the API, especially as we begin to use it in more real-world
 scenarios. However, all of these changes will be enumerated in each version's
 changelog and release notes. Once we have found an API that is sane and stable,
@@ -133,10 +135,8 @@ we will release a 1.0, after which point, all versions of the 1.X line will be
 backwards compatible per [semver](https://semver.org).
 
 ## Contributing
+
 We :heart: any contributions. Any fixes to make things simpler or more idiomatic
 are also more than welcome. Please open a pull request if you have something you
 want to contribute. As the project matures, we will add a more detailed
 contributors guide
-
-To contribute to this repo, you will need to have signed [Microsoft
-CLA](https://cla.opensource.microsoft.com).

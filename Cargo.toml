@@ -1,11 +1,11 @@
 [package]
 name = "macaroon"
 version = "0.1.1"
-authors = ["Jack Lund <jackl@geekheads.net>"]
+authors = ["Jack Lund <jackl@geekheads.net>", "macaroon-rs Contributors"]
 description = "Fully functional implementation of macaroons in Rust"
 documentation = "https://docs.rs/macaroon"
-homepage = "https://github.com/jacklund/libmacaroon-rs"
-repository = "https://github.com/jacklund/libmacaroon-rs"
+homepage = "https://github.com/macaroon-rs/macaroon-rs"
+repository = "https://github.com/macaroon-rs/macaroon-rs"
 keywords = ["macaroon", "cookies", "authorization", "credentials"]
 categories = ["cryptography"]
 license = "MIT"
