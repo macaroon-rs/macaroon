@@ -6,6 +6,7 @@ Rust implementation of
 [macaroons](https://research.google.com/pubs/pub41892.html).
 
 [![Build Status](https://github.com/macaroon-rs/macaroon-rs/workflows/build_and_test/badge.svg?branch=master)](https://github.com/macaroon-rs/macaroon-rs/actions)
+[![codecov](https://codecov.io/gh/macaroon-rs/macaroon-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon-rs)
 
 **NOTE:** This project builds on previous work done by [Deis Labs](https://github.com/deislabs/libmacaroon-rs)
 and the original [libmacaroon-rs](https://github.com/jacklund/libmacaroon-rs).
