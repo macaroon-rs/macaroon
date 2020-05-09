@@ -1,12 +1,12 @@
 <img src="https://svgshare.com/i/JxB.svg" alt="Ferris holding French macaroons" width="200"/>
 
-# macaroon-rs
+# macaroon
 
 Rust implementation of
 [macaroons](https://research.google.com/pubs/pub41892.html).
 
-[![Build Status](https://github.com/macaroon-rs/macaroon-rs/workflows/build_and_test/badge.svg?branch=master)](https://github.com/macaroon-rs/macaroon-rs/actions)
-[![codecov](https://codecov.io/gh/macaroon-rs/macaroon-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon-rs)
+[![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=master)](https://github.com/macaroon-rs/macaroon/actions)
+[![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/master/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
 
 **NOTE:** This project builds on previous work done by [Deis Labs](https://github.com/deislabs/libmacaroon-rs)
 and the original [libmacaroon-rs](https://github.com/jacklund/libmacaroon-rs).
@@ -59,7 +59,7 @@ include this dependency like so in your `Cargo.toml`:
 
 ```
 [dependencies]
-macaroon = { git = "https://github.com/macaroon-rs/macaroon-rs", branch = "master" }
+macaroon = { git = "https://github.com/macaroon-rs/macaroon", branch = "master" }
 ```
 
 ### Examples
