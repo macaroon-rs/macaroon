@@ -1,7 +1,7 @@
 //! Implementation of [Macaroons](http://research.google.com/pubs/pub41892.html) for Rust, which are
 //! flexible authorization tokens for distributed systems. They are similar to cookies, but allow for
 //! more narrowly-focused authorization based on contextual caveats. For more information, see
-//! [here](https://raw.githubusercontent.com/rescrv/libmacaroons/master/README).
+//! [here](https://raw.githubusercontent.com/macaroon-rs/macaroon/trunk/README).
 //!
 //! # What Are Macaroons?
 //!
