@@ -1,8 +1,8 @@
-# macaroon-rs Change Log
+# macaroon Change Log
 
 ## Version 0.1.1 - Feb 22, 2017 (libmacaroon-rs)
 
-- Coverage using [coveralls.io](https://coveralls.io/github/jacklund/libmacaroon-rs?branch=master)
+- Coverage using [coveralls.io](https://coveralls.io/github/jacklund/libmacaroon-rs?branch=trunk)
 - Expanded coverage of unit tests
 - Bug fix for version 1 deserialization
 
