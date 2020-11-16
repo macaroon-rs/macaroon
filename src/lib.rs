@@ -271,10 +271,7 @@ impl Macaroon {
     pub fn first_party_caveats(&self) -> Vec<Caveat> {
         self.caveats
             .iter()
-            .filter(|c| match c {
-                caveat::Caveat::FirstParty(_) => true,
-                _ => false,
-            })
+            .filter(|c| matches!(c, caveat::Caveat::FirstParty(_)))
             .cloned()
             .collect()
     }
@@ -283,10 +280,7 @@ impl Macaroon {
     pub fn third_party_caveats(&self) -> Vec<Caveat> {
         self.caveats
             .iter()
-            .filter(|c| match c {
-                caveat::Caveat::ThirdParty(_) => true,
-                _ => false,
-            })
+            .filter(|c| matches!(c, caveat::Caveat::ThirdParty(_)))
             .cloned()
             .collect()
     }
