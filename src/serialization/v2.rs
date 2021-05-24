@@ -33,8 +33,7 @@ fn serialize_field(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
 }
 
 pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
-    let mut buffer: Vec<u8> = Vec::new();
-    buffer.push(2); // version
+    let mut buffer: Vec<u8> = vec![2 /* version */];
     if let Some(ref location) = macaroon.location() {
         serialize_field(LOCATION, &location.as_bytes().to_vec(), &mut buffer);
     };
@@ -226,7 +225,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
             "Unexpected tag found".into(),
         ));
     }
-    Ok(builder.build()?)
+    builder.build()
 }
 
 #[cfg(test)]
@@ -285,8 +284,12 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon =
-            Macaroon::create(Some("http://example.org/".into()), &"key".into(), "keyid".into()).unwrap();
+        let mut macaroon = Macaroon::create(
+            Some("http://example.org/".into()),
+            &"key".into(),
+            "keyid".into(),
+        )
+        .unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(

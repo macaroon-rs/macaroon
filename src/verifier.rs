@@ -44,7 +44,7 @@ impl Verifier {
             sig = match &c {
                 Caveat::ThirdParty(tp) => {
                     let caveat_key = crypto::decrypt_key(&sig, &tp.verifier_id().0)?;
-                    let dm = discharge_set.remove(&tp.id()).ok_or_else(|| MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
+                    let dm = discharge_set.remove(&tp.id()).ok_or(MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
                     self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
                     c.sign(&sig)
                 }
