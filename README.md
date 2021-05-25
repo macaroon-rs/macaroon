@@ -137,6 +137,16 @@ changelog and release notes. Once we have found an API that is sane and stable,
 we will release a 1.0, after which point, all versions of the 1.X line will be
 backwards compatible per [semver](https://semver.org).
 
+## Minimum Supported Rust Version
+
+This crate supports Rust Language 2018 Edition and currently commits to working
+with stable Rust version 1.47 and later. It requires `std`.
+
+Going forward, it should support every stable version of Rust, and at any given
+time maintain compatibility with stable versions of Rust released in the past 6
+months or so.  In other words, it will not depend on language features or
+syntax just released as stable in the past 6 months.
+
 ## Contributing
 
 We :heart: any contributions. Any fixes to make things simpler or more idiomatic
