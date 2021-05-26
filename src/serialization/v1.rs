@@ -34,13 +34,12 @@ fn to_hex_char(value: u8) -> u8 {
 }
 
 fn packet_header(size: usize) -> Vec<u8> {
-    let mut header: Vec<u8> = Vec::new();
-    header.push(to_hex_char(((size >> 12) & 15) as u8));
-    header.push(to_hex_char(((size >> 8) & 15) as u8));
-    header.push(to_hex_char(((size >> 4) & 15) as u8));
-    header.push(to_hex_char((size & 15) as u8));
-
-    header
+    vec![
+        to_hex_char(((size >> 12) & 15) as u8),
+        to_hex_char(((size >> 8) & 15) as u8),
+        to_hex_char(((size >> 4) & 15) as u8),
+        to_hex_char((size & 15) as u8),
+    ]
 }
 
 pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
@@ -152,7 +151,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon> {
             }
         };
     }
-    Ok(builder.build()?)
+    builder.build()
 }
 
 #[cfg(test)]
@@ -222,8 +221,12 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut macaroon: Macaroon =
-            Macaroon::create(Some("http://example.org/".into()), &"my key".into(), "keyid".into()).unwrap();
+        let mut macaroon: Macaroon = Macaroon::create(
+            Some("http://example.org/".into()),
+            &"my key".into(),
+            "keyid".into(),
+        )
+        .unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
