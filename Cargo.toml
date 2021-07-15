@@ -18,5 +18,5 @@ sodiumoxide = "0.2"
 base64 = "0.12"
 
 [dev-dependencies]
-env_logger = "0.7"
+env_logger = "0.9"
 time = "0.2.16"
