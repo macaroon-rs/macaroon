@@ -6,8 +6,8 @@ Rust implementation of
 [macaroons](https://research.google.com/pubs/pub41892.html).
 
 [![Crates.io](https://img.shields.io/crates/v/macaroon)](https://crates.io/crates/macaroon)
-[![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=trunk)](https://github.com/macaroon-rs/macaroon/actions)
-[![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/trunk/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
+[![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=main)](https://github.com/macaroon-rs/macaroon/actions)
+[![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/main/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
 
 ## What are Macaroons?
 
@@ -45,16 +45,6 @@ the above process.
 - Creation of discharge macaroons
 - Verification of both first- and third-party caveats (the latter using
   discharge macaroons)
-
-## Usage
-
-Until we release a new version and get the name in crates, you'll have to
-include this dependency like so in your `Cargo.toml`:
-
-```
-[dependencies]
-macaroon = { git = "https://github.com/macaroon-rs/macaroon", branch = "trunk" }
-```
 
 ### Examples
 
