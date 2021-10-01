@@ -1,6 +1,6 @@
 [package]
 name = "macaroon"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jack Lund <jackl@geekheads.net>", "macaroon-rs Contributors"]
 description = "Fully functional implementation of macaroons in Rust"
 documentation = "https://docs.rs/macaroon"
