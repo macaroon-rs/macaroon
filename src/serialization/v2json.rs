@@ -177,7 +177,7 @@ impl Macaroon {
             caveat_builder = CaveatBuilder::new();
         }
 
-        Ok(builder.build()?)
+        builder.build()
     }
 }
 
