@@ -5,15 +5,9 @@
 Rust implementation of
 [macaroons](https://research.google.com/pubs/pub41892.html).
 
-[![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=trunk)](https://github.com/macaroon-rs/macaroon/actions)
-[![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/trunk/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
-
-**NOTE:** This project builds on previous work done by [Deis Labs](https://github.com/deislabs/libmacaroon-rs)
-and the original [libmacaroon-rs](https://github.com/jacklund/libmacaroon-rs).
-We are currently working with [getting in touch](https://github.com/jacklund/libmacaroon-rs/issues/4)
-with the author and other interested parties to see if we can transfer the crate
-name to us as we are working on maintaining this. Large breaking changes have been made to the API of the [macaroon crate](https://crates.io/crates/macaroon). The full list of changes will be listed in
-the changelog once we release a new minor version for that same crate.
+[![Crates.io](https://img.shields.io/crates/v/macaroon)](https://crates.io/crates/macaroon)
+[![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=main)](https://github.com/macaroon-rs/macaroon/actions)
+[![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/main/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
 
 ## What are Macaroons?
 
@@ -51,16 +45,6 @@ the above process.
 - Creation of discharge macaroons
 - Verification of both first- and third-party caveats (the latter using
   discharge macaroons)
-
-## Usage
-
-Until we release a new version and get the name in crates, you'll have to
-include this dependency like so in your `Cargo.toml`:
-
-```
-[dependencies]
-macaroon = { git = "https://github.com/macaroon-rs/macaroon", branch = "trunk" }
-```
 
 ### Examples
 
@@ -136,6 +120,16 @@ scenarios. However, all of these changes will be enumerated in each version's
 changelog and release notes. Once we have found an API that is sane and stable,
 we will release a 1.0, after which point, all versions of the 1.X line will be
 backwards compatible per [semver](https://semver.org).
+
+## Minimum Supported Rust Version
+
+This crate supports Rust Language 2018 Edition and currently commits to working
+with stable Rust version 1.47 and later. It requires `std`.
+
+Going forward, it should support every stable version of Rust, and at any given
+time maintain compatibility with stable versions of Rust released in the past 6
+months or so.  In other words, it will not depend on language features or
+syntax just released as stable in the past 6 months.
 
 ## Contributing
 

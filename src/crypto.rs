@@ -137,7 +137,9 @@ where
         &secretbox::Key(*key.as_ref()),
     ) {
         Ok(plaintext) => Ok(Key::from_slice(&plaintext)
-            .ok_or_else(|| MacaroonError::DecryptionError("given key is incorrect length"))?
+            .ok_or(MacaroonError::DecryptionError(
+                "given key is incorrect length",
+            ))?
             .into()),
         Err(()) => {
             error!(
