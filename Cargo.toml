@@ -19,4 +19,4 @@ base64 = "0.13"
 
 [dev-dependencies]
 env_logger = "0.9"
-time = "0.2.16"
+time = "0.3.6"
