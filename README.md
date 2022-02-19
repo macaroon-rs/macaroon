@@ -9,6 +9,8 @@ Rust implementation of
 [![Build Status](https://github.com/macaroon-rs/macaroon/workflows/build_and_test/badge.svg?branch=main)](https://github.com/macaroon-rs/macaroon/actions)
 [![codecov](https://codecov.io/gh/macaroon-rs/macaroon/branch/main/graph/badge.svg)](https://codecov.io/gh/macaroon-rs/macaroon)
 
+NOTE: THIS LIBRARY SHOULD NOT BE CONSIDERED SECURE AND HENCE SHOULD NOT BE USED IN PRODUCTION UNTIL IT PASSES A FULL SECURITY AUDIT. THE API IS ALSO LIKELY TO HAVE BREAKING CHANGES BETWEEN 0.X MINOR VERSIONS AND SHOULD THEREFORE NOT BE CONSIDERED STABLE.
+
 ## What are Macaroons?
 
 Macaroons are bearer tokens (similar to cookies) which encode within them
