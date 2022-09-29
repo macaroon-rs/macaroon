@@ -1,4 +1,4 @@
-<img src="https://svgshare.com/i/JxB.svg" alt="Ferris holding French macaroons" width="200"/>
+<img src="ferris_macaroons_logo.svg" alt="Ferris holding French macaroons" width="200"/>
 
 # macaroon
 
