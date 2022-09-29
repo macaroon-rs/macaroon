@@ -33,7 +33,7 @@ fn serialize_field(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
 pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut buffer: Vec<u8> = vec![2 /* version */];
     if let Some(ref location) = macaroon.location() {
-        serialize_field(LOCATION, &location.as_bytes().to_vec(), &mut buffer);
+        serialize_field(LOCATION, location.as_bytes(), &mut buffer);
     };
     serialize_field(IDENTIFIER, &macaroon.identifier().0, &mut buffer);
     buffer.push(EOS);

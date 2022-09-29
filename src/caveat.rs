@@ -5,13 +5,13 @@ use crate::Result;
 use crypto::MacaroonKey;
 use std::fmt::Debug;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Caveat {
     FirstParty(FirstParty),
     ThirdParty(ThirdParty),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FirstParty {
     predicate: ByteString,
 }
@@ -22,7 +22,7 @@ impl FirstParty {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ThirdParty {
     id: ByteString,
     verifier_id: ByteString,

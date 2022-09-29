@@ -9,7 +9,7 @@ const KEY_GENERATOR: MacaroonKey = MacaroonKey(*b"macaroons-key-generator\0\0\0\
 
 // A convenience type for a MacaroonKey with helpful methods attached for
 // conversion. Using the default trait will return a randomly generated key
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MacaroonKey([u8; sodiumoxide::crypto::auth::KEYBYTES]);
 
 impl Default for MacaroonKey {
@@ -101,7 +101,7 @@ where
     let MacaroonKey(tmp1) = hmac(key, text1);
     let MacaroonKey(tmp2) = hmac(key, text2);
     let tmp = [tmp1, tmp2].concat();
-    hmac(key, &tmp.to_vec())
+    hmac(key, &tmp)
 }
 
 pub fn encrypt_key<T>(key: &T, plaintext: &T) -> Vec<u8>

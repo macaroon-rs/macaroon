@@ -134,7 +134,7 @@ pub fn initialize() -> Result<()> {
 // An implementation that represents any binary data. By spec, most fields in a
 // macaroon support binary encoded as base64, so ByteString has methods to
 // convert to and from base64 strings
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ByteString(pub Vec<u8>);
 
 impl AsRef<[u8]> for ByteString {
@@ -164,12 +164,6 @@ impl From<[u8; 32]> for ByteString {
 impl From<MacaroonKey> for ByteString {
     fn from(k: MacaroonKey) -> ByteString {
         ByteString(k.to_vec())
-    }
-}
-
-impl Default for ByteString {
-    fn default() -> ByteString {
-        ByteString(Default::default())
     }
 }
 
@@ -218,7 +212,7 @@ impl<'de> Deserialize<'de> for ByteString {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Macaroon {
     identifier: ByteString,
     location: Option<String>,
