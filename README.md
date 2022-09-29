@@ -125,8 +125,8 @@ backwards compatible per [semver](https://semver.org).
 
 ## Minimum Supported Rust Version
 
-This crate supports Rust Language 2018 Edition and currently commits to working
-with stable Rust version 1.47 and later. It requires `std`.
+This crate supports Rust Language 2021 Edition and currently commits to working
+with stable Rust version 1.56 and later. It requires `std`.
 
 Going forward, it should support every stable version of Rust, and at any given
 time maintain compatibility with stable versions of Rust released in the past 6
