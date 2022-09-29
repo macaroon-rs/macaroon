@@ -192,8 +192,12 @@ mod tests {
             Err(_) => return false,
         };
 
-        match time::OffsetDateTime::parse(&strcaveat[7..], "%Y-%m-%dT%H:%M%z") {
-            Ok(compare) => time::OffsetDateTime::now_local() > compare,
+        let format = time::format_description::parse(
+            "[year]-[month]-[day]T[hour]:[minute][offset_hour sign:mandatory][offset_minute]",
+        )
+        .unwrap();
+        match time::OffsetDateTime::parse(&strcaveat[7..], &format) {
+            Ok(compare) => time::OffsetDateTime::now_utc() > compare,
             Err(_) => false,
         }
     }
