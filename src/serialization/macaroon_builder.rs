@@ -1,9 +1,6 @@
-use caveat::Caveat;
-use error::MacaroonError;
-use ByteString;
-use Macaroon;
-use MacaroonKey;
-use Result;
+use crate::caveat::Caveat;
+use crate::error::MacaroonError;
+use crate::{ByteString, Macaroon, MacaroonKey, Result};
 
 #[derive(Default)]
 pub struct MacaroonBuilder {

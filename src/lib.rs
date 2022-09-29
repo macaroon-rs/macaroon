@@ -363,11 +363,7 @@ impl Macaroon {
 
 #[cfg(test)]
 mod tests {
-    use super::ByteString;
-    use super::Caveat;
-    use super::Macaroon;
-    use super::MacaroonKey;
-    use Result;
+    use crate::{ByteString, Caveat, Macaroon, MacaroonKey, Result};
 
     #[test]
     fn create_macaroon() {

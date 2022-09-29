@@ -1,9 +1,9 @@
-use crypto;
+use crate::crypto;
+use crate::error::MacaroonError;
+use crate::ByteString;
+use crate::Result;
 use crypto::MacaroonKey;
-use error::MacaroonError;
 use std::fmt::Debug;
-use ByteString;
-use Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Caveat {
