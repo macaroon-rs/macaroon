@@ -1,13 +1,11 @@
-use caveat;
-use caveat::CaveatBuilder;
-use error::MacaroonError;
+use crate::caveat;
+use crate::caveat::CaveatBuilder;
+use crate::error::MacaroonError;
+use crate::serialization::macaroon_builder::MacaroonBuilder;
+use crate::{ByteString, Macaroon, Result};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use serialization::macaroon_builder::MacaroonBuilder;
 use std::str;
-use ByteString;
-use Macaroon;
-use Result;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
@@ -195,10 +193,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 #[cfg(test)]
 mod tests {
     use super::super::Format;
-    use ByteString;
-    use Caveat;
-    use Macaroon;
-    use MacaroonKey;
+    use crate::{ByteString, Caveat, Macaroon, MacaroonKey};
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                    \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \

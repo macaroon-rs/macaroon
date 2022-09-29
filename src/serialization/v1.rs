@@ -1,10 +1,8 @@
-use caveat::{Caveat, CaveatBuilder};
-use error::MacaroonError;
-use serialization::macaroon_builder::MacaroonBuilder;
+use crate::caveat::{Caveat, CaveatBuilder};
+use crate::error::MacaroonError;
+use crate::serialization::macaroon_builder::MacaroonBuilder;
+use crate::{ByteString, Macaroon, Result};
 use std::str;
-use ByteString;
-use Macaroon;
-use Result;
 
 // Version 1 fields
 const LOCATION: &str = "location";
@@ -156,10 +154,7 @@ pub fn deserialize(base64: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
-    use ByteString;
-    use Caveat;
-    use Macaroon;
-    use MacaroonKey;
+    use crate::{ByteString, Caveat, Macaroon, MacaroonKey};
 
     #[test]
     fn test_deserialize() {
