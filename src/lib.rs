@@ -1,7 +1,6 @@
 //! Implementation of [Macaroons](http://research.google.com/pubs/pub41892.html) for Rust, which are
 //! flexible authorization tokens for distributed systems. They are similar to cookies, but allow for
-//! more narrowly-focused authorization based on contextual caveats. For more information, see
-//! [here](https://raw.githubusercontent.com/macaroon-rs/macaroon/trunk/README).
+//! more narrowly-focused authorization based on contextual caveats.
 //!
 //! # What Are Macaroons?
 //!
@@ -27,7 +26,8 @@
 //! The macaroon is considered authorized only if all its caveats are authorized by the above process.
 //!
 //! # Example
-//! ```
+//!
+//! ```rust
 //! use macaroon::{Macaroon, Verifier, MacaroonKey};
 //!
 //! // Initialize to make crypto primitives thread-safe
@@ -90,12 +90,15 @@
 //!     Err(error) => println!("Error validating macaroon: {:?}", error),
 //! }
 //! ```
+//!
 //! # Supported Features
+//!
 //! This crate supports all the following features:
 //!
 //! - verification of first-party caveats either via exact string match or passed-in function
 //! - verification of third-party caveats using discharge macaroons (including ones that themselves have embedded third-party caveats)
 //! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
+
 #[macro_use]
 extern crate log;
 extern crate base64;
@@ -121,7 +124,7 @@ use std::fmt;
 
 pub type Result<T> = std::result::Result<T, MacaroonError>;
 
-/// Initializes the cryptographic libraries. Although you can use macaroon-rs without
+/// Initializes the cryptographic libraries. Although you can use `macaroon` without
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
 pub fn initialize() -> Result<()> {
