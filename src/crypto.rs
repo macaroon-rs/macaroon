@@ -7,8 +7,38 @@ use std::ops::{Deref, DerefMut};
 
 const KEY_GENERATOR: MacaroonKey = MacaroonKey(*b"macaroons-key-generator\0\0\0\0\0\0\0\0\0");
 
-/// A convenience type for a secret MacaroonKey with helpful methods attached for conversion. Using
-/// the default trait will return a randomly generated key.
+/// Secret cryptographic key used to sign and verify Macaroons.
+///
+/// This is a wrapper type around an array of bytes of the correct size for the underlying
+/// cryptographic primatives (currently 32 bytes). Keys can be either provided verbatim as raw
+/// bytes; generated randomly; or generated via an HMAC from a byte string of any length. For
+/// security, keys should be generated using at least 32 bytes of entropy, and stored securely.
+///
+/// No special techniques are used by this crate to keep key material safe in memory. The `Debug`
+/// trait will output the secret key material, which could end up leaked in logs.
+///
+/// ## Creation
+///
+/// ```rust
+/// # use std::error::Error;
+/// #
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// use macaroon::MacaroonKey;
+/// extern crate base64;
+///
+/// // generate a new random key from scratch
+/// let fresh_key = MacaroonKey::generate_random();
+///
+/// // generate from a byte string
+/// let weak_example_key = MacaroonKey::generate(b"some-secret-here");
+///
+/// // import a base64-encoded key (eg, from a secrets vault)
+/// let mut key_bytes: [u8; 32] = [0; 32];
+/// key_bytes.copy_from_slice(&base64::decode("zV/IaqNgsWe2c22J5ilLY/d9DbxEir2z1bYBrzBemsM=")?);
+/// let secret_key: MacaroonKey = key_bytes.into();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MacaroonKey([u8; sodiumoxide::crypto::auth::KEYBYTES]);
 
