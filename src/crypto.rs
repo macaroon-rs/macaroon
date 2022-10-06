@@ -12,18 +12,6 @@ const KEY_GENERATOR: MacaroonKey = MacaroonKey(*b"macaroons-key-generator\0\0\0\
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MacaroonKey([u8; sodiumoxide::crypto::auth::KEYBYTES]);
 
-impl Default for MacaroonKey {
-    /// Generate a new random key.
-    ///
-    /// ```rust
-    /// # use macaroon::MacaroonKey;
-    /// let key = MacaroonKey::default();
-    /// ```
-    fn default() -> Self {
-        MacaroonKey(gen_key().0)
-    }
-}
-
 impl AsRef<[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
     fn as_ref(&self) -> &[u8; sodiumoxide::crypto::auth::KEYBYTES] {
         &self.0
@@ -77,6 +65,16 @@ impl From<&[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
 }
 
 impl MacaroonKey {
+    /// Generate a new random key, using a secure random number generator.
+    ///
+    /// ```rust
+    /// # use macaroon::MacaroonKey;
+    /// let key = MacaroonKey::generate_random();
+    /// ```
+    pub fn generate_random() -> Self {
+        MacaroonKey(gen_key().0)
+    }
+
     /// Use some seed data to reproducibly generate a MacaroonKey via HMAC.
     ///
     /// ```rust

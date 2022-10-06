@@ -2,7 +2,6 @@ use crate::caveat::Caveat;
 use crate::error::MacaroonError;
 use crate::{ByteString, Macaroon, MacaroonKey, Result};
 
-#[derive(Default)]
 pub struct MacaroonBuilder {
     identifier: ByteString,
     location: Option<String>,
@@ -12,7 +11,12 @@ pub struct MacaroonBuilder {
 
 impl MacaroonBuilder {
     pub fn new() -> MacaroonBuilder {
-        Default::default()
+        MacaroonBuilder {
+            identifier: Default::default(),
+            location: None,
+            signature: MacaroonKey::generate_random(),
+            caveats: Default::default(),
+        }
     }
 
     pub fn set_identifier(&mut self, identifier: ByteString) {
