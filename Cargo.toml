@@ -6,10 +6,9 @@ rust-version = "1.56"
 authors = ["Jack Lund <jackl@geekheads.net>", "macaroon-rs Contributors"]
 description = "Fully functional implementation of macaroons in Rust"
 documentation = "https://docs.rs/macaroon"
-homepage = "https://github.com/macaroon-rs/macaroon-rs"
-repository = "https://github.com/macaroon-rs/macaroon-rs"
+repository = "https://github.com/macaroon-rs/macaroon"
 keywords = ["macaroon", "cookies", "authorization", "credentials"]
-categories = ["cryptography"]
+categories = ["authentication", "cryptography"]
 license = "MIT"
 
 [dependencies]
