@@ -1,7 +1,7 @@
 [package]
 name = "macaroon"
 version = "0.3.0-dev.0"
-edition = "2018"
+edition = "2021"
 rust-version = "1.56"
 authors = ["Jack Lund <jackl@geekheads.net>", "macaroon-rs Contributors"]
 description = "Fully functional implementation of macaroons in Rust"
