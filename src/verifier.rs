@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_simple_macaroon() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         let verifier = Verifier::default();
         verifier
@@ -109,8 +109,9 @@ mod tests {
 
     #[test]
     fn test_simple_macaroon_bad_verifier_key() {
-        let macaroon = Macaroon::create(None, &"key".into(), "testing".into()).unwrap();
-        let key: MacaroonKey = "this is not the key".into();
+        let macaroon =
+            Macaroon::create(None, &MacaroonKey::generate(b"key"), "testing".into()).unwrap();
+        let key = MacaroonKey::generate(b"this is not the key");
         let verifier = Verifier::default();
         verifier
             .verify(&macaroon, &key, Default::default())
@@ -119,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_exact_caveat() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         let mut verifier = Verifier::default();
@@ -131,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_exact_caveat_wrong_verifier() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         let mut verifier = Verifier::default();
@@ -143,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_exact_caveat_wrong_context() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         let verifier = Verifier::default();
@@ -154,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_caveats() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
@@ -168,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_caveats_incomplete_verifier() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon = Macaroon::create(None, &key, "testing".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
         macaroon.add_first_party_caveat("user = alice".into());
@@ -205,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_caveat() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon =
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
@@ -222,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_fails_general() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon =
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
@@ -239,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_macaroon_two_exact_and_one_general_incomplete_verifier() {
-        let key: MacaroonKey = "this is the key".into();
+        let key = MacaroonKey::generate(b"this is the key");
         let mut macaroon =
             Macaroon::create(Some("http://example.org/".into()), &key, "keyid".into()).unwrap();
         macaroon.add_first_party_caveat("account = 3735928559".into());
@@ -255,8 +256,8 @@ mod tests {
 
     #[test]
     fn test_macaroon_third_party_caveat() {
-        let root_key: MacaroonKey = "this is the key".into();
-        let another_key: MacaroonKey = "this is another key".into();
+        let root_key = MacaroonKey::generate(b"this is the key");
+        let another_key = MacaroonKey::generate(b"this is another key");
         let mut macaroon = Macaroon::create(
             Some("http://example.org/".into()),
             &root_key,
@@ -281,8 +282,8 @@ mod tests {
 
     #[test]
     fn test_macaroon_third_party_caveat_with_cycle() {
-        let root_key: MacaroonKey = "this is the key".into();
-        let another_key: MacaroonKey = "this is another key".into();
+        let root_key = MacaroonKey::generate(b"this is the key");
+        let another_key = MacaroonKey::generate(b"this is another key");
         let mut macaroon = Macaroon::create(
             Some("http://example.org/".into()),
             &root_key,

@@ -34,7 +34,7 @@
 //! macaroon::initialize().unwrap(); // Force panic if initialization fails
 //!
 //! // Create our key
-//! let key = "key".into();
+//! let key = MacaroonKey::generate(b"key");
 //!
 //! // Create our macaroon. A location is optional.
 //! let mut macaroon = match Macaroon::create(Some("location".into()), &key, "id".into()) {
@@ -64,7 +64,7 @@
 //! // to authorize this for us as well.
 //!
 //! // Create a key for the third party caveat
-//! let other_key = "different key".into();
+//! let other_key = MacaroonKey::generate(b"different key");
 //!
 //! macaroon.add_third_party_caveat("https://auth.mybank", &other_key, "caveat id".into());
 //!
@@ -325,7 +325,7 @@ impl Macaroon {
     /// that the discharge macaroons aren't re-used in some other context, we bind them to the original
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
-        let zero_key: MacaroonKey = [0; 32].into();
+        let zero_key = MacaroonKey::from([0; 32]);
         discharge.signature = crypto::hmac2(&zero_key, &self.signature, &discharge.signature);
         debug!(
             "Macaroon::bind: original: {:?}, discharge: {:?}",
@@ -376,7 +376,8 @@ mod tests {
             65, 213, 46, 109, 76, 49, 201, 186, 92, 114, 163, 214, 231,
         ]
         .into();
-        let key: MacaroonKey = b"this is a super duper secret key".into();
+        // NOTE: using byte string directly, not generating with HMAC
+        let key = MacaroonKey::from(b"this is a super duper secret key");
         let macaroon_res = Macaroon::create(Some("location".into()), &key, "identifier".into());
         assert!(macaroon_res.is_ok());
         let macaroon = macaroon_res.unwrap();
@@ -389,7 +390,8 @@ mod tests {
 
     #[test]
     fn create_invalid_macaroon() {
-        let key: MacaroonKey = "this is a super duper secret key".into();
+        // NOTE: using byte string directly, not generating with HMAC
+        let key = MacaroonKey::from(b"this is a super duper secret key");
         let macaroon_res: Result<Macaroon> =
             Macaroon::create(Some("location".into()), &key, "".into());
         assert!(macaroon_res.is_err());
@@ -409,12 +411,12 @@ mod tests {
         ));
         println!("{}", deser_err.unwrap_err());
 
-        let key: MacaroonKey = "this is a super duper secret key".into();
+        let key = MacaroonKey::generate(b"this is a super duper secret key");
         let mut mac =
             Macaroon::create(Some("http://mybank".into()), &key, "identifier".into()).unwrap();
 
         let mut ver = Verifier::default();
-        let wrong_key: MacaroonKey = "not what was expected".into();
+        let wrong_key = MacaroonKey::generate(b"not what was expected");
         let sig_err = ver.verify(&mac, &wrong_key, Default::default());
         assert!(matches!(sig_err, Err(MacaroonError::InvalidSignature)));
         println!("{}", sig_err.unwrap_err());
@@ -428,7 +430,7 @@ mod tests {
         assert!(ver.verify(&mac, &key, Default::default()).is_ok());
 
         let mut mac2 = mac.clone();
-        let cav_key: MacaroonKey = "My key".into();
+        let cav_key = MacaroonKey::generate(b"My key");
         mac2.add_third_party_caveat("other location", &cav_key, "other ident".into());
         let cav_err = ver.verify(&mac2, &key, Default::default());
         assert!(matches!(cav_err, Err(MacaroonError::CaveatNotSatisfied(_))));
@@ -452,7 +454,8 @@ mod tests {
             94, 93, 65, 247, 88, 25, 39, 170, 203, 8, 4, 167, 187,
         ]
         .into();
-        let key: MacaroonKey = b"this is a super duper secret key".into();
+        // NOTE: using byte string directly, not generating with HMAC
+        let key = MacaroonKey::from(b"this is a super duper secret key");
         let mut macaroon =
             Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         macaroon.add_first_party_caveat("predicate".into());
@@ -468,11 +471,12 @@ mod tests {
 
     #[test]
     fn create_macaroon_with_third_party_caveat() {
-        let key: MacaroonKey = "this is a super duper secret key".into();
+        // NOTE: using byte string directly, not generating with HMAC
+        let key = MacaroonKey::from(b"this is a super duper secret key");
         let mut macaroon =
             Macaroon::create(Some("location".into()), &key, "identifier".into()).unwrap();
         let location = "https://auth.mybank.com";
-        let cav_key: MacaroonKey = "My key".into();
+        let cav_key = MacaroonKey::generate(b"My key");
         let id = "My Caveat";
         macaroon.add_third_party_caveat(location, &cav_key, id.into());
         assert_eq!(1, macaroon.caveats.len());

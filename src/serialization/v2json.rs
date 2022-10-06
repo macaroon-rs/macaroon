@@ -235,7 +235,7 @@ mod tests {
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com/",
-            &"my key".into(),
+            &MacaroonKey::generate(b"my key"),
             "keyid".into(),
         );
         let serialized = macaroon.serialize(Format::V2JSON).unwrap();
