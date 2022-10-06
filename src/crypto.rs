@@ -7,12 +7,18 @@ use std::ops::{Deref, DerefMut};
 
 const KEY_GENERATOR: MacaroonKey = MacaroonKey(*b"macaroons-key-generator\0\0\0\0\0\0\0\0\0");
 
-// A convenience type for a MacaroonKey with helpful methods attached for
-// conversion. Using the default trait will return a randomly generated key
+/// A convenience type for a secret MacaroonKey with helpful methods attached for conversion. Using
+/// the default trait will return a randomly generated key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MacaroonKey([u8; sodiumoxide::crypto::auth::KEYBYTES]);
 
 impl Default for MacaroonKey {
+    /// Generate a new random key.
+    ///
+    /// ```rust
+    /// # use macaroon::MacaroonKey;
+    /// let key = MacaroonKey::default();
+    /// ```
     fn default() -> Self {
         MacaroonKey(gen_key().0)
     }
@@ -50,18 +56,6 @@ impl DerefMut for MacaroonKey {
     }
 }
 
-impl From<&str> for MacaroonKey {
-    fn from(s: &str) -> Self {
-        generate_derived_key(s.as_bytes())
-    }
-}
-
-impl From<&[u8]> for MacaroonKey {
-    fn from(b: &[u8]) -> Self {
-        generate_derived_key(b)
-    }
-}
-
 impl From<Key> for MacaroonKey {
     fn from(k: Key) -> Self {
         MacaroonKey(k.0)
@@ -69,14 +63,32 @@ impl From<Key> for MacaroonKey {
 }
 
 impl From<[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    /// Uses bytes directly as a MacaroonKey (with no HMAC)
     fn from(b: [u8; sodiumoxide::crypto::auth::KEYBYTES]) -> Self {
         MacaroonKey(b)
     }
 }
 
 impl From<&[u8; sodiumoxide::crypto::auth::KEYBYTES]> for MacaroonKey {
+    /// Uses bytes directly as a MacaroonKey (with no HMAC)
     fn from(b: &[u8; sodiumoxide::crypto::auth::KEYBYTES]) -> Self {
         MacaroonKey(*b)
+    }
+}
+
+impl MacaroonKey {
+    /// Use some seed data to reproducibly generate a MacaroonKey via HMAC.
+    ///
+    /// ```rust
+    /// # use macaroon::MacaroonKey;
+    /// let key = MacaroonKey::generate(b"secret-byte-string");
+    /// let key = MacaroonKey::generate("secret-unicode-string‽".as_bytes());
+    ///
+    /// let b = [5,4,3,2,1];
+    /// let key = MacaroonKey::generate(&b);
+    /// ```
+    pub fn generate(seed: &[u8]) -> Self {
+        generate_derived_key(seed)
     }
 }
 
@@ -157,8 +169,9 @@ mod test {
 
     #[test]
     fn test_encrypt_decrypt() {
-        let secret: MacaroonKey = "This is my encrypted key\0\0\0\0\0\0\0\0".into();
-        let key: MacaroonKey = "This is my secret key\0\0\0\0\0\0\0\0\0\0\0".into();
+        // NOTE: these are keys as byte sequences, not generated via HMAC
+        let secret: MacaroonKey = b"This is my encrypted key\0\0\0\0\0\0\0\0".into();
+        let key: MacaroonKey = b"This is my secret key\0\0\0\0\0\0\0\0\0\0\0".into();
         let encrypted = encrypt_key(&key, &secret);
         let decrypted = decrypt_key(&key, &encrypted).unwrap();
         assert_eq!(secret, decrypted);

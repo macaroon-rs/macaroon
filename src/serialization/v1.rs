@@ -238,7 +238,7 @@ mod tests {
     fn test_serialize_deserialize() {
         let mut macaroon: Macaroon = Macaroon::create(
             Some("http://example.org/".into()),
-            &"my key".into(),
+            &MacaroonKey::generate(b"my key"),
             "keyid".into(),
         )
         .unwrap();
@@ -246,7 +246,7 @@ mod tests {
         macaroon.add_first_party_caveat("user = alice".into());
         macaroon.add_third_party_caveat(
             "https://auth.mybank.com",
-            &"caveat key".into(),
+            &MacaroonKey::generate(b"caveat key"),
             "caveat".into(),
         );
         let serialized = macaroon.serialize(super::super::Format::V1).unwrap();

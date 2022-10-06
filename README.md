@@ -58,7 +58,7 @@ use macaroon::{Macaroon, Verifier, MacaroonKey};
 macaroon::initialize().unwrap(); // Force panic if initialization fails
 
 // Create our key
-let key = "key".into();
+let key = MacaroonKey::generate(b"key");
 
 // Create our macaroon. A location is optional.
 let mut macaroon = match Macaroon::create(Some("location".into()), &key, "id".into()) {
@@ -88,7 +88,7 @@ match verifier.verify(&macaroon, &key, Default::default()) {
 // to authorize this for us as well.
 
 // Create a key for the third party caveat
-let other_key = "different key".into();
+let other_key = MacaroonKey::generate(b"different key");
 
 macaroon.add_third_party_caveat("https://auth.mybank", &other_key, "caveat id".into());
 
