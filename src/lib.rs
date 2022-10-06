@@ -107,16 +107,16 @@ extern crate serde_json;
 extern crate sodiumoxide;
 
 mod caveat;
-pub mod crypto;
-pub mod error;
+mod crypto;
+mod error;
 mod serialization;
-pub mod verifier;
+mod verifier;
 
 pub use caveat::Caveat;
 pub use crypto::MacaroonKey;
 pub use error::MacaroonError;
 pub use serialization::Format;
-pub use verifier::Verifier;
+pub use verifier::{Verifier, VerifyFunc};
 
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
