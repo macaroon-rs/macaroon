@@ -429,3 +429,17 @@ mod tests {
         assert_eq!(&macaroon.caveats[0], &macaroon.third_party_caveats()[0]);
     }
 }
+
+// This will run rust code in the README as a test. Copied from:
+// https://github.com/rust-lang/cargo/issues/383#issuecomment-720873790
+#[cfg(doctest)]
+mod test_readme {
+    macro_rules! external_doc_test {
+        ($x:expr) => {
+            #[doc = $x]
+            extern "C" {}
+        };
+    }
+
+    external_doc_test!(include_str!("../README.md"));
+}
