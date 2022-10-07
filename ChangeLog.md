@@ -7,6 +7,7 @@ This is a backwards-incompatible release with respect to serialized macaroon sig
 - Revert HMAC back to SHA-256 (breaks signatures)
 - Dependency updates
 - Update Rust edition to 2021, and minimum required Rust version to v1.56
+- Public API "flattened" (internal modules no longer exposed), and some internal cryptographic functions removed from API
 
 ## Version 0.2.0 - Sep 24, 2021 (macaroon)
 
