@@ -3,12 +3,9 @@ use std::{num, str, string};
 #[derive(Debug)]
 pub enum MacaroonError {
     InitializationError,
-    HashFailed,
-    NotUTF8(str::Utf8Error),
     UnknownSerialization,
     DeserializationError(String),
     BadMacaroon(&'static str),
-    KeyError(&'static str),
     DecryptionError(&'static str),
     InvalidMacaroon(&'static str),
 }
