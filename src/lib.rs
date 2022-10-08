@@ -344,6 +344,11 @@ impl Macaroon {
 
     /// Deserialize a macaroon
     pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
+        if data.is_empty() {
+            return Err(MacaroonError::DeserializationError(
+                "empty token provided".to_string(),
+            ));
+        }
         let macaroon: Macaroon = match data[0] as char {
             '{' => serialization::v2json::deserialize(data)?,
             '\x02' => serialization::v2::deserialize(data)?,
@@ -482,6 +487,20 @@ mod tests {
         assert_eq!(location, cav_location);
         assert_eq!(ByteString::from(id), cav_id);
         assert_eq!(&macaroon.caveats[0], &macaroon.third_party_caveats()[0]);
+    }
+
+    #[test]
+    fn test_deserialize_bad_data() {
+        // these are all expected to fail... but not panic!
+        assert!(Macaroon::deserialize(b"").is_err());
+        assert!(Macaroon::deserialize(b"12345").is_err());
+        assert!(Macaroon::deserialize(b"\0").is_err());
+        assert!(Macaroon::deserialize(b"NDhJe_A==").is_err());
+
+        // examples that fail from fuzzing for the top-level deserialize function
+        assert!(Macaroon::deserialize(&vec![10]).is_err());
+        assert!(Macaroon::deserialize(&vec![70, 70, 102, 70]).is_err());
+        assert!(Macaroon::deserialize(&vec![2, 2, 212, 212, 212, 212]).is_err());
     }
 }
 
