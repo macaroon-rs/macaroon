@@ -96,7 +96,7 @@ impl CaveatBuilder {
 
     pub fn build(self) -> Result<Caveat> {
         if self.id.is_none() {
-            return Err(MacaroonError::BadMacaroon("No identifier found"));
+            return Err(MacaroonError::IncompleteCaveat("no identifier found"));
         }
         if self.verifier_id.is_none() && self.location.is_none() {
             return Ok(new_first_party(self.id.unwrap()));
@@ -109,12 +109,8 @@ impl CaveatBuilder {
             ));
         }
         if self.verifier_id.is_none() {
-            return Err(MacaroonError::BadMacaroon(
-                "Location but no verifier ID found",
-            ));
+            return Err(MacaroonError::IncompleteCaveat("no verifier ID found"));
         }
-        Err(MacaroonError::BadMacaroon(
-            "Verifier ID but no location found",
-        ))
+        Err(MacaroonError::IncompleteCaveat("no location found"))
     }
 }

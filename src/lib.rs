@@ -128,10 +128,7 @@ pub type Result<T> = std::result::Result<T, MacaroonError>;
 /// calling this, the underlying random-number generator is not guaranteed to be thread-safe
 /// if you don't.
 pub fn initialize() -> Result<()> {
-    match sodiumoxide::init() {
-        Ok(_) => Ok(()),
-        Err(_) => Err(MacaroonError::InitializationError),
-    }
+    sodiumoxide::init().map_err(|_| MacaroonError::InitializationError)
 }
 
 // An implementation that represents any binary data. By spec, most fields in a
@@ -229,7 +226,8 @@ impl Macaroon {
     /// `into` to automatically generate a suitable key
     ///
     /// # Errors
-    /// Returns `MacaroonError::BadMacaroon` if the identifier is is empty
+    ///
+    /// Returns `MacaroonError::IncompleteMacaroon` if the identifier is is empty
     pub fn create(
         location: Option<String>,
         key: &MacaroonKey,
@@ -285,10 +283,10 @@ impl Macaroon {
     /// Validate the macaroon - used mainly for validating deserialized macaroons
     fn validate(self) -> Result<Self> {
         if self.identifier.0.is_empty() {
-            return Err(MacaroonError::BadMacaroon("No macaroon identifier"));
+            return Err(MacaroonError::IncompleteMacaroon("no identifier found"));
         }
         if self.signature.is_empty() {
-            return Err(MacaroonError::BadMacaroon("No macaroon signature"));
+            return Err(MacaroonError::IncompleteMacaroon("no signature found"));
         }
 
         Ok(self)
@@ -352,7 +350,11 @@ impl Macaroon {
             'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '/' | '_' => {
                 serialization::v1::deserialize(data)?
             }
-            _ => return Err(MacaroonError::UnknownSerialization),
+            _ => {
+                return Err(MacaroonError::DeserializationError(
+                    "unknown macaroon serialization format".to_string(),
+                ))
+            }
         };
         macaroon.validate()
     }

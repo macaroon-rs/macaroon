@@ -3,11 +3,13 @@ use std::{num, str, string};
 #[derive(Debug)]
 pub enum MacaroonError {
     InitializationError,
-    UnknownSerialization,
+    CryptoError(&'static str),
+    IncompleteMacaroon(&'static str),
+    IncompleteCaveat(&'static str),
     DeserializationError(String),
-    BadMacaroon(&'static str),
-    DecryptionError(&'static str),
-    InvalidMacaroon(&'static str),
+    CaveatNotSatisfied(String),
+    DischargeNotUsed,
+    InvalidSignature,
 }
 
 impl From<serde_json::Error> for MacaroonError {

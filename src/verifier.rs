@@ -20,9 +20,7 @@ impl Verifier {
         self.verify_with_sig(&m.signature, m, key, &mut discharge_set)?;
         // Now check that all discharges were used
         if !discharge_set.is_empty() {
-            return Err(MacaroonError::InvalidMacaroon(
-                "all discharge macaroons were not used",
-            ));
+            return Err(MacaroonError::DischargeNotUsed);
         }
         Ok(())
     }
@@ -39,7 +37,7 @@ impl Verifier {
             sig = match &c {
                 Caveat::ThirdParty(tp) => {
                     let caveat_key = crypto::decrypt_key(&sig, &tp.verifier_id().0)?;
-                    let dm = discharge_set.remove(&tp.id()).ok_or(MacaroonError::InvalidMacaroon("no discharge macaroon found (or discharge has already been used) for caveat"))?;
+                    let dm = discharge_set.remove(&tp.id()).ok_or_else(|| MacaroonError::CaveatNotSatisfied("no discharge macaroon found (or discharge has already been used) for third-party caveat".to_string()))?;
                     self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
                     c.sign(&sig)
                 }
@@ -50,7 +48,10 @@ impl Verifier {
                         || self.verify_general(&fp.predicate()))
                     {
                         // If both failed, it means we weren't successful at either
-                        return Err(MacaroonError::InvalidMacaroon("caveats are not valid"));
+                        return Err(MacaroonError::CaveatNotSatisfied(format!(
+                            "first party caveat not satisfied: {}",
+                            String::from_utf8_lossy(fp.predicate().as_ref())
+                        )));
                     }
                     c.sign(&sig)
                 }
@@ -66,7 +67,7 @@ impl Verifier {
         let zero_key: MacaroonKey = [0; 32].into();
         let bound_sig = crypto::hmac2(&zero_key, &ByteString(root_sig.to_vec()), &sig.into());
         if bound_sig != m.signature {
-            return Err(MacaroonError::InvalidMacaroon("signature is not valid"));
+            return Err(MacaroonError::InvalidSignature);
         }
         Ok(())
     }

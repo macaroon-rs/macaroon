@@ -37,10 +37,10 @@ impl MacaroonBuilder {
 
     pub fn build(&self) -> Result<Macaroon> {
         if self.identifier.0.is_empty() {
-            return Err(MacaroonError::BadMacaroon("No identifier found"));
+            return Err(MacaroonError::IncompleteMacaroon("no identifier found"));
         }
         if self.signature.is_empty() {
-            return Err(MacaroonError::BadMacaroon("No signature found"));
+            return Err(MacaroonError::IncompleteMacaroon("no signature found"));
         }
 
         Ok(Macaroon {

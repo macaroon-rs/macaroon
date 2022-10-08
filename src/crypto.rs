@@ -124,7 +124,7 @@ where
     let raw_data: &[u8] = data.as_ref();
     if raw_data.len() <= secretbox::NONCEBYTES + secretbox::MACBYTES {
         error!("crypto::decrypt: Encrypted data {:?} too short", raw_data);
-        return Err(MacaroonError::DecryptionError("Encrypted data too short"));
+        return Err(MacaroonError::CryptoError("encrypted data too short"));
     }
     let mut nonce: [u8; secretbox::NONCEBYTES] = [0; secretbox::NONCEBYTES];
     nonce.clone_from_slice(&raw_data[..secretbox::NONCEBYTES]);
@@ -137,8 +137,8 @@ where
         &secretbox::Key(*key.as_ref()),
     ) {
         Ok(plaintext) => Ok(Key::from_slice(&plaintext)
-            .ok_or(MacaroonError::DecryptionError(
-                "given key is incorrect length",
+            .ok_or(MacaroonError::CryptoError(
+                "supplied key has wrong length (expected 32 bytes)",
             ))?
             .into()),
         Err(()) => {
@@ -146,7 +146,7 @@ where
                 "crypto::decrypt: Unknown decryption error decrypting {:?}",
                 raw_data
             );
-            Err(MacaroonError::DecryptionError("Unknown decryption error"))
+            Err(MacaroonError::CryptoError("failed to decrypt ciphertext"))
         }
     }
 }
