@@ -11,6 +11,7 @@ const VID: u8 = 4;
 const SIGNATURE: u8 = 6;
 
 const VARINT_PACK_SIZE: usize = 128;
+const MAX_FIELD_SIZE_BYTES: usize = 65535;
 
 fn varint_size(size: usize) -> Vec<u8> {
     let mut buffer: Vec<u8> = Vec::new();
@@ -115,6 +116,12 @@ impl<'r> Deserializer<'r> {
                 size |= ((byte & 127) as usize) << shift;
             } else {
                 size |= (byte as usize) << shift;
+                if size > MAX_FIELD_SIZE_BYTES {
+                    return Err(MacaroonError::DeserializationError(format!(
+                        "field size too large ({} > {})",
+                        size, MAX_FIELD_SIZE_BYTES
+                    )));
+                }
                 return Ok(size);
             }
             shift += 7;
