@@ -89,6 +89,11 @@ fn deserialize_as_packets(data: &[u8], mut packets: Vec<Packet>) -> Result<Vec<P
             "packet chunk size larger than token".to_string(),
         ));
     }
+    if size <= 4 {
+        return Err(MacaroonError::DeserializationError(
+            "packet chunk size too small".to_string(),
+        ));
+    }
     let packet_data = &data[4..size];
     let index = split_index(packet_data)?;
     let (key_slice, value_slice) = packet_data.split_at(index);
@@ -256,6 +261,16 @@ mod tests {
         assert!(Macaroon::deserialize(&vec![70, 70, 102, 70]).is_err());
         let tok = base64::encode_config(
             &[97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 10],
+            base64::URL_SAFE,
+        );
+        assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
+        let tok = base64::encode_config(
+            &[
+                48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+                48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+                48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+                48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 44, 125, 59, 64,
+            ],
             base64::URL_SAFE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
