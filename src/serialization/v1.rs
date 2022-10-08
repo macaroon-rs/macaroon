@@ -77,6 +77,11 @@ fn deserialize_as_packets(data: &[u8], mut packets: Vec<Packet>) -> Result<Vec<P
     if data.is_empty() {
         return Ok(packets);
     }
+    if data.len() < 4 {
+        return Err(MacaroonError::DeserializationError(
+            "packet chunk too small to decode".to_string(),
+        ));
+    }
     let hex: &str = str::from_utf8(&data[..4])?;
     let size: usize = usize::from_str_radix(hex, 16)?;
     let packet_data = &data[4..size];
@@ -243,5 +248,6 @@ mod tests {
         assert!(super::deserialize(b"NDhJe_A==").is_err());
 
         // these failed fuzz testing for this deserializer (V1)
+        assert!(Macaroon::deserialize(&vec![70, 70, 102, 70]).is_err());
     }
 }
