@@ -97,6 +97,11 @@ fn deserialize_as_packets(data: &[u8], mut packets: Vec<Packet>) -> Result<Vec<P
     let packet_data = &data[4..size];
     let index = split_index(packet_data)?;
     let (key_slice, value_slice) = packet_data.split_at(index);
+    if value_slice.len() < 2 {
+        return Err(MacaroonError::DeserializationError(
+            "packet value size too small".to_string(),
+        ));
+    }
     packets.push(Packet {
         key: String::from_utf8(key_slice.to_vec())?,
         // skip beginning space and terminating \n
@@ -270,6 +275,13 @@ mod tests {
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 44, 125, 59, 64,
+            ],
+            base64::URL_SAFE,
+        );
+        assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
+        let tok = base64::encode_config(
+            &[
+                48, 48, 49, 48, 49, 48, 52, 48, 48, 48, 48, 48, 48, 48, 48, 32, 126, 10,
             ],
             base64::URL_SAFE,
         );
