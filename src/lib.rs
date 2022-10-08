@@ -362,7 +362,7 @@ impl Macaroon {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ByteString, Caveat, Macaroon, MacaroonKey, Result};
+    use crate::{ByteString, Caveat, Macaroon, MacaroonError, MacaroonKey, Result, Verifier};
 
     #[test]
     fn create_macaroon() {
@@ -388,6 +388,56 @@ mod tests {
         let macaroon_res: Result<Macaroon> =
             Macaroon::create(Some("location".into()), &key, "".into());
         assert!(macaroon_res.is_err());
+        assert!(matches!(
+            macaroon_res,
+            Err(MacaroonError::IncompleteMacaroon(_))
+        ));
+        println!("{}", macaroon_res.unwrap_err());
+    }
+
+    #[test]
+    fn create_macaroon_errors() {
+        let deser_err = Macaroon::deserialize(b"\0");
+        assert!(matches!(
+            deser_err,
+            Err(MacaroonError::DeserializationError(_))
+        ));
+        println!("{}", deser_err.unwrap_err());
+
+        let key: MacaroonKey = "this is a super duper secret key".into();
+        let mut mac =
+            Macaroon::create(Some("http://mybank".into()), &key, "identifier".into()).unwrap();
+
+        let mut ver = Verifier::default();
+        let wrong_key: MacaroonKey = "not what was expected".into();
+        let sig_err = ver.verify(&mac, &wrong_key, Default::default());
+        assert!(matches!(sig_err, Err(MacaroonError::InvalidSignature)));
+        println!("{}", sig_err.unwrap_err());
+        assert!(ver.verify(&mac, &key, Default::default()).is_ok());
+
+        mac.add_first_party_caveat("account = 3735928559".into());
+        let cav_err = ver.verify(&mac, &key, Default::default());
+        assert!(matches!(cav_err, Err(MacaroonError::CaveatNotSatisfied(_))));
+        println!("{}", cav_err.unwrap_err());
+        ver.satisfy_exact("account = 3735928559".into());
+        assert!(ver.verify(&mac, &key, Default::default()).is_ok());
+
+        let mut mac2 = mac.clone();
+        let cav_key: MacaroonKey = "My key".into();
+        mac2.add_third_party_caveat("other location", &cav_key, "other ident".into());
+        let cav_err = ver.verify(&mac2, &key, Default::default());
+        assert!(matches!(cav_err, Err(MacaroonError::CaveatNotSatisfied(_))));
+        println!("{}", cav_err.unwrap_err());
+
+        let discharge = Macaroon::create(
+            Some("http://auth.mybank/".into()),
+            &cav_key,
+            "other keyid".into(),
+        )
+        .unwrap();
+        let disch_err = ver.verify(&mac, &key, vec![discharge]);
+        assert!(matches!(disch_err, Err(MacaroonError::DischargeNotUsed)));
+        println!("{}", disch_err.unwrap_err());
     }
 
     #[test]

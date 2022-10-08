@@ -1,5 +1,20 @@
 use std::{num, str, string};
 
+/// Represents all of the errors that can arise when creating, deserializing, or verifying macaroons.
+///
+/// `InitializationError` is only raised by the [`initialize`] function, when there is a problem
+/// initializing the lower-level crypo library. `CryptoError` represents a runtime error when using
+/// that library, or situations like zero-length ciphertext.
+///
+/// `IncompleteMacaroon` and `IncompleteCaveat` can occur when constructing or deserializing
+/// [`Macaroon`] or [`Caveat`] structs, and expected fields are not present.
+///
+/// `DeserializationError` represents a broad category of issues when parsing a macaroon token in
+/// any format.
+///
+/// `CaveatNotSatisfied`, `DischargeNotUsed`, and `InvalidSignature` are all errors that arise when
+/// verifying a [`Macaroon`], and all represent a failure to authorize with the given key and set
+/// of satisfiers.
 #[derive(Debug)]
 pub enum MacaroonError {
     InitializationError,
@@ -39,5 +54,60 @@ impl From<num::ParseIntError> for MacaroonError {
 impl From<str::Utf8Error> for MacaroonError {
     fn from(error: str::Utf8Error) -> MacaroonError {
         MacaroonError::DeserializationError(format!("{}", error))
+    }
+}
+
+impl std::error::Error for MacaroonError {
+    // Note: `description()` is considered deprecated in standard library API; the Display
+    // implementation below is more important
+    fn description(&self) -> &str {
+        match *self {
+            MacaroonError::InitializationError => "initialization error",
+            MacaroonError::CryptoError(_) => "cryptography error",
+            MacaroonError::IncompleteMacaroon(_) => "incomplete macaroon",
+            MacaroonError::IncompleteCaveat(_) => "incomplete caveat",
+            MacaroonError::DeserializationError(_) => "error deserializing macaroon",
+            MacaroonError::CaveatNotSatisfied(_) => "one or more macaroon caveats not satisfied",
+            MacaroonError::DischargeNotUsed => "one or more macaroon discharged not used",
+            MacaroonError::InvalidSignature => "macaroon signature not correct",
+        }
+    }
+}
+
+impl std::fmt::Display for MacaroonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MacaroonError::InitializationError => write!(
+                f,
+                "Failed to initialize crypographic library for this thread"
+            ),
+            MacaroonError::CryptoError(s) => write!(
+                f,
+                "Error performing lower-level crypographic function: {}",
+                s
+            ),
+            MacaroonError::IncompleteMacaroon(s) => {
+                write!(f, "Macaroon was missing required field: {}", s)
+            }
+            MacaroonError::IncompleteCaveat(s) => {
+                write!(f, "Caveat was missing required field: {}", s)
+            }
+            MacaroonError::DeserializationError(s) => {
+                write!(f, "Failed to deserialize macaroon: {}", s)
+            }
+            MacaroonError::CaveatNotSatisfied(s) => write!(
+                f,
+                "Macaroon failed to verify because one or more caveats were not satisfied: {}",
+                s
+            ),
+            MacaroonError::DischargeNotUsed => write!(
+                f,
+                "Macaroon failed to verify because one or more discharges were not used"
+            ),
+            MacaroonError::InvalidSignature => write!(
+                f,
+                "Macaroon failed to verify because signature did not match"
+            ),
+        }
     }
 }
