@@ -319,4 +319,15 @@ mod tests {
         };
         assert_eq!("https://auth.mybank.com", location);
     }
+
+    #[test]
+    fn test_deserialize_bad_data() {
+        // these are all expected to fail... but not panic!
+        assert!(super::deserialize(b"").is_err());
+        assert!(super::deserialize(b"12345").is_err());
+        assert!(super::deserialize(b"\0").is_err());
+
+        // these failed fuzz testing for this deserializer (V2)
+
+    }
 }

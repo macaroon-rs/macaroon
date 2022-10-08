@@ -233,4 +233,15 @@ mod tests {
         let deserialized = Macaroon::deserialize(&serialized).unwrap();
         assert_eq!(macaroon, deserialized);
     }
+
+    #[test]
+    fn test_deserialize_bad_data() {
+        // these are all expected to fail... but not panic!
+        assert!(super::deserialize(b"").is_err());
+        assert!(super::deserialize(b"12345").is_err());
+        assert!(super::deserialize(b"\0").is_err());
+        assert!(super::deserialize(b"NDhJe_A==").is_err());
+
+        // these failed fuzz testing for this deserializer (V1)
+    }
 }
