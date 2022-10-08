@@ -109,12 +109,12 @@ impl<'r> Deserializer<'r> {
         let mut size: usize = 0;
         let mut shift: usize = 0;
         let mut byte: u8;
-        while shift <= 63 {
+        while shift <= (usize::BITS - 8) as usize {
             byte = self.get_byte()?;
             if byte & 128 != 0 {
-                size |= ((byte & 127) << shift) as usize;
+                size |= ((byte & 127) as usize) << shift;
             } else {
-                size |= (byte << shift) as usize;
+                size |= (byte as usize) << shift;
                 return Ok(size);
             }
             shift += 7;
@@ -328,6 +328,6 @@ mod tests {
         assert!(super::deserialize(b"\0").is_err());
 
         // these failed fuzz testing for this deserializer (V2)
-
+        assert!(Macaroon::deserialize(&vec![2, 2, 212, 212, 212, 212]).is_err());
     }
 }
