@@ -67,7 +67,7 @@ impl<'r> Deserializer<'r> {
     }
 
     fn get_byte(&mut self) -> Result<u8> {
-        if self.index > self.data.len() - 1 {
+        if self.data.is_empty() || self.index > self.data.len() - 1 {
             return Err(MacaroonError::DeserializationError(String::from(
                 "Buffer overrun",
             )));
