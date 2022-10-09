@@ -212,6 +212,38 @@ impl<'de> Deserialize<'de> for ByteString {
     }
 }
 
+/// Internal helper to decode base64 tokens in either URL-safe or non-URL-safe format, with or
+/// without padding. The macaroons format specifies that macaroons should be accepted in any of
+/// these variations.
+///
+/// Logic is based on pymacaroons helper:
+/// https://github.com/ecordell/pymacaroons/blob/master/pymacaroons/utils.py#L109
+fn base64_decode_flexible(b: &[u8]) -> Result<Vec<u8>> {
+    if b.is_empty() {
+        return Err(MacaroonError::DeserializationError(
+            "empty token to deserialize".to_string(),
+        ));
+    }
+    if b.contains(&b'_') || b.contains(&b'-') {
+        Ok(base64::decode_config(b, base64::URL_SAFE)?)
+    } else {
+        Ok(base64::decode_config(b, base64::STANDARD)?)
+    }
+}
+
+// https://github.com/rescrv/libmacaroons/blob/master/doc/format.txt#L87
+#[test]
+fn test_base64_decode_flexible() {
+    let val = b"Ou?T".to_vec();
+    assert_eq!(val, base64_decode_flexible(b"T3U/VA==").unwrap());
+    assert_eq!(val, base64_decode_flexible(b"T3U_VA==").unwrap());
+    assert_eq!(val, base64_decode_flexible(b"T3U/VA").unwrap());
+    assert_eq!(val, base64_decode_flexible(b"T3U_VA").unwrap());
+
+    assert!(base64_decode_flexible(b"...").is_err());
+    assert!(base64_decode_flexible(b"").is_err());
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Macaroon {
     identifier: ByteString,
@@ -333,8 +365,11 @@ impl Macaroon {
         );
     }
 
-    /// Serialize the macaroon using the serialization format provided
-    pub fn serialize(&self, format: serialization::Format) -> Result<Vec<u8>> {
+    /// Serialize the macaroon using the serialization [Format] provided
+    ///
+    /// For V1 and V2, the binary format will be encoded as URL-safe base64 with padding
+    /// (`base64::URL_SAFE`). For V2JSON, the output will be JSON.
+    pub fn serialize(&self, format: serialization::Format) -> Result<String> {
         match format {
             serialization::Format::V1 => serialization::v1::serialize(self),
             serialization::Format::V2 => serialization::v2::serialize(self),
@@ -342,26 +377,46 @@ impl Macaroon {
         }
     }
 
-    /// Deserialize a macaroon
-    pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
-        if data.is_empty() {
+    /// Deserialize an encoded macaroon token, inferring the [Format]
+    ///
+    /// For V1 and V2 tokens, this assumes base64 encoding, in either "standard" or URL-safe
+    /// encoding, with or without padding.
+    pub fn deserialize<T: AsRef<[u8]>>(token: T) -> Result<Macaroon> {
+        if token.as_ref().is_empty() {
             return Err(MacaroonError::DeserializationError(
                 "empty token provided".to_string(),
             ));
         }
-        let macaroon: Macaroon = match data[0] as char {
-            '{' => serialization::v2json::deserialize(data)?,
-            '\x02' => serialization::v2::deserialize(data)?,
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '/' | '_' => {
-                serialization::v1::deserialize(data)?
+        let mac: Macaroon = match token.as_ref()[0] as char {
+            '{' => serialization::v2json::deserialize(token.as_ref())?,
+            _ => {
+                let binary = base64_decode_flexible(token.as_ref())?;
+                Macaroon::deserialize_binary(&binary)?
             }
+        };
+        mac.validate()
+    }
+
+    /// Deserialize a binary macaroon token in binary, inferring the [Format]
+    ///
+    /// This works with V1 and V2 tokens, with no base64 encoding. It does not make sense to use
+    /// this with V2JSON tokens.
+    pub fn deserialize_binary(token: &[u8]) -> Result<Macaroon> {
+        if token.is_empty() {
+            return Err(MacaroonError::DeserializationError(
+                "empty macaroon token".to_string(),
+            ));
+        }
+        let mac: Macaroon = match token[0] as char {
+            '\x02' => serialization::v2::deserialize(token)?,
+            'a'..='f' | 'A'..='Z' | '0'..='9' => serialization::v1::deserialize(token)?,
             _ => {
                 return Err(MacaroonError::DeserializationError(
                     "unknown macaroon serialization format".to_string(),
                 ))
             }
         };
-        macaroon.validate()
+        mac.validate()
     }
 }
 

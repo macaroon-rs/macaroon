@@ -40,7 +40,7 @@ fn packet_header(size: usize) -> Vec<u8> {
     ]
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
+pub fn serialize_binary(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut serialized: Vec<u8> = Vec::new();
     if let Some(ref location) = macaroon.location() {
         serialized.extend(serialize_as_packet(LOCATION, location.as_bytes()));
@@ -59,13 +59,12 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
         }
     }
     serialized.extend(serialize_as_packet(SIGNATURE, &macaroon.signature()));
-    Ok(base64::encode_config(&serialized, base64::URL_SAFE)
-        .as_bytes()
-        .to_vec())
+    Ok(serialized)
 }
 
-fn base64_decode(s: &str) -> Result<Vec<u8>> {
-    Ok(base64::decode_config(s, base64::URL_SAFE)?)
+pub fn serialize(macaroon: &Macaroon) -> Result<String> {
+    let buf = serialize_binary(macaroon)?;
+    Ok(base64::encode_config(&buf, base64::URL_SAFE))
 }
 
 struct Packet {
@@ -119,8 +118,9 @@ fn split_index(packet: &[u8]) -> Result<usize> {
     }
 }
 
-pub fn deserialize(base64: &[u8]) -> Result<Macaroon> {
-    let data = base64_decode(&String::from_utf8(base64.to_vec())?)?;
+/// Takes a binary token (not base64-encoded)
+pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
+    let data = data.to_vec();
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut caveat_builder: CaveatBuilder = CaveatBuilder::new();
     for packet in deserialize_as_packets(data.as_slice(), Vec::new())? {
@@ -184,7 +184,10 @@ mod tests {
             40, 226, 169, 147, 1, 249, 215, 17, 198, 9, 227, 142, 247,
         ]
         .into();
-        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
+        let data = base64::decode_config(serialized, base64::URL_SAFE).unwrap();
+        let macaroon = super::deserialize(&data).unwrap();
+        let macaroon_lib = Macaroon::deserialize(serialized).unwrap();
+        assert_eq!(macaroon, macaroon_lib);
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
@@ -195,7 +198,8 @@ mod tests {
             61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135,
         ]
         .into();
-        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
+        let data = base64::decode_config(serialized, base64::URL_SAFE).unwrap();
+        let macaroon = super::deserialize(&data).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
@@ -216,7 +220,10 @@ mod tests {
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
         ]
         .into();
-        let macaroon = super::deserialize(&serialized.as_bytes().to_vec()).unwrap();
+        let data = base64::decode(serialized).unwrap();
+        let macaroon = super::deserialize(&data).unwrap();
+        let macaroon_lib = Macaroon::deserialize(serialized).unwrap();
+        assert_eq!(macaroon, macaroon_lib);
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
