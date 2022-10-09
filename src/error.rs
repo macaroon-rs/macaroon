@@ -57,22 +57,7 @@ impl From<str::Utf8Error> for MacaroonError {
     }
 }
 
-impl std::error::Error for MacaroonError {
-    // Note: `description()` is considered deprecated in standard library API; the Display
-    // implementation below is more important
-    fn description(&self) -> &str {
-        match *self {
-            MacaroonError::InitializationError => "initialization error",
-            MacaroonError::CryptoError(_) => "cryptography error",
-            MacaroonError::IncompleteMacaroon(_) => "incomplete macaroon",
-            MacaroonError::IncompleteCaveat(_) => "incomplete caveat",
-            MacaroonError::DeserializationError(_) => "error deserializing macaroon",
-            MacaroonError::CaveatNotSatisfied(_) => "one or more macaroon caveats not satisfied",
-            MacaroonError::DischargeNotUsed => "one or more macaroon discharged not used",
-            MacaroonError::InvalidSignature => "macaroon signature not correct",
-        }
-    }
-}
+impl std::error::Error for MacaroonError {}
 
 impl std::fmt::Display for MacaroonError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
