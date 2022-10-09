@@ -259,7 +259,7 @@ impl Macaroon {
     ///
     /// # Errors
     ///
-    /// Returns `MacaroonError::IncompleteMacaroon` if the identifier is empty
+    /// Returns `MacaroonError::IncompleteMacaroon` if the identifier bytestring is empty
     pub fn create(
         location: Option<String>,
         key: &MacaroonKey,
@@ -280,12 +280,15 @@ impl Macaroon {
         self.identifier.clone()
     }
 
-    /// Returns the location for the macaroon
+    /// Returns a clone the location for the macaroon
     pub fn location(&self) -> Option<String> {
         self.location.clone()
     }
 
     /// Returns the macaroon's signature
+    ///
+    /// The [MacaroonKey] type is used because it is the same size and format a signature, but the
+    /// signature is not and should be used as a cryptographic key.
     pub fn signature(&self) -> MacaroonKey {
         self.signature
     }
@@ -312,7 +315,11 @@ impl Macaroon {
             .collect()
     }
 
-    /// Validate the macaroon - used mainly for validating deserialized macaroons
+    /// Validate that a Macaroon has all the expected fields
+    ///
+    /// This is a low-level function to confirm that a macaroon was constructured correctly. It
+    /// does *not* verify the signature, caveats, or in any way confirm that a macaroon is
+    /// authentic from a security standpoint.
     fn validate(self) -> Result<Self> {
         if self.identifier.0.is_empty() {
             return Err(MacaroonError::IncompleteMacaroon("no identifier found"));
