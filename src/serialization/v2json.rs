@@ -179,10 +179,10 @@ impl Macaroon {
     }
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
+pub fn serialize(macaroon: &Macaroon) -> Result<String> {
     let serialized: String =
         serde_json::to_string(&Serialization::from_macaroon(macaroon.clone())?)?;
-    Ok(serialized.into_bytes())
+    Ok(serialized)
 }
 
 pub fn deserialize(data: &[u8]) -> Result<Macaroon> {

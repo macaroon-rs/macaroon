@@ -31,7 +31,7 @@ fn serialize_field(tag: u8, value: &[u8], buffer: &mut Vec<u8>) {
     buffer.extend(value);
 }
 
-pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
+pub fn serialize_binary(macaroon: &Macaroon) -> Result<Vec<u8>> {
     let mut buffer: Vec<u8> = vec![2 /* version */];
     if let Some(ref location) = macaroon.location() {
         serialize_field(LOCATION, location.as_bytes(), &mut buffer);
@@ -55,6 +55,11 @@ pub fn serialize(macaroon: &Macaroon) -> Result<Vec<u8>> {
     buffer.push(EOS);
     serialize_field(SIGNATURE, &macaroon.signature(), &mut buffer);
     Ok(buffer)
+}
+
+pub fn serialize(macaroon: &Macaroon) -> Result<String> {
+    let buf = serialize_binary(macaroon)?;
+    Ok(base64::encode_config(&buf, base64::URL_SAFE))
 }
 
 struct Deserializer<'r> {
@@ -132,6 +137,7 @@ impl<'r> Deserializer<'r> {
     }
 }
 
+/// Takes a binary token (not base64-encoded)
 pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
     let mut builder: MacaroonBuilder = MacaroonBuilder::new();
     let mut deserializer: Deserializer = Deserializer::new(data);
@@ -279,10 +285,7 @@ mod tests {
         builder.set_identifier("keyid".into());
         builder.set_signature(&SIGNATURE);
         let serialized = super::serialize(&builder.build().unwrap()).unwrap();
-        assert_eq!(
-            base64::decode_config(SERIALIZED, base64::URL_SAFE).unwrap(),
-            serialized
-        );
+        assert_eq!(SERIALIZED, serialized);
     }
 
     #[test]
@@ -300,7 +303,7 @@ mod tests {
             &MacaroonKey::generate(b"caveat key"),
             "caveat".into(),
         );
-        let serialized = super::serialize(&macaroon).unwrap();
+        let serialized = super::serialize_binary(&macaroon).unwrap();
         macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());
