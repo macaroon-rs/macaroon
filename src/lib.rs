@@ -227,7 +227,7 @@ impl Macaroon {
     ///
     /// # Errors
     ///
-    /// Returns `MacaroonError::IncompleteMacaroon` if the identifier is is empty
+    /// Returns `MacaroonError::IncompleteMacaroon` if the identifier is empty
     pub fn create(
         location: Option<String>,
         key: &MacaroonKey,

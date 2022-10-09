@@ -3,7 +3,7 @@ use std::{num, str, string};
 /// Represents all of the errors that can arise when creating, deserializing, or verifying macaroons.
 ///
 /// `InitializationError` is only raised by the [`initialize`] function, when there is a problem
-/// initializing the lower-level crypo library. `CryptoError` represents a runtime error when using
+/// initializing the lower-level crypto library. `CryptoError` represents a runtime error when using
 /// that library, or situations like zero-length ciphertext.
 ///
 /// `IncompleteMacaroon` and `IncompleteCaveat` can occur when constructing or deserializing
@@ -79,11 +79,11 @@ impl std::fmt::Display for MacaroonError {
         match self {
             MacaroonError::InitializationError => write!(
                 f,
-                "Failed to initialize crypographic library for this thread"
+                "Failed to initialize cryptographic library for this thread"
             ),
             MacaroonError::CryptoError(s) => write!(
                 f,
-                "Error performing lower-level crypographic function: {}",
+                "Error performing lower-level cryptographic function: {}",
                 s
             ),
             MacaroonError::IncompleteMacaroon(s) => {
