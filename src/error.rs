@@ -1,29 +1,37 @@
 use std::{num, str, string};
 
 /// Represents all of the errors that can arise when creating, deserializing, or verifying macaroons.
-///
-/// `InitializationError` is only raised by the [`initialize`] function, when there is a problem
-/// initializing the lower-level crypto library. `CryptoError` represents a runtime error when using
-/// that library, or situations like zero-length ciphertext.
-///
-/// `IncompleteMacaroon` and `IncompleteCaveat` can occur when constructing or deserializing
-/// [`Macaroon`] or [`Caveat`] structs, and expected fields are not present.
-///
-/// `DeserializationError` represents a broad category of issues when parsing a macaroon token in
-/// any format.
-///
-/// `CaveatNotSatisfied`, `DischargeNotUsed`, and `InvalidSignature` are all errors that arise when
-/// verifying a [`Macaroon`], and all represent a failure to authorize with the given key and set
-/// of satisfiers.
 #[derive(Debug)]
 pub enum MacaroonError {
+    /// Only raised by the [`initialize()`](crate::initialize) function, when there is a problem
+    /// initializing the lower-level crypto library
     InitializationError,
+
+    /// Represents a runtime error in the lower-level cryptographic library, or situations like
+    /// zero-length ciphertext.
     CryptoError(&'static str),
+
+    /// Can occur when constructing or deserializing a [`Macaroon`](crate::Macaroon) and expected fields are not present.
     IncompleteMacaroon(&'static str),
+
+    /// Can occur when constructing or deserializing [`Caveat`](crate::Caveat) and expected fields are not present.
     IncompleteCaveat(&'static str),
+
+    /// Represents a broad category of issues when parsing a macaroon token in any format.
     DeserializationError(String),
+
+    /// Arises when verifying a [`Macaroon`](crate::Macaroon), when it has any caveat not
+    /// satisfied by any "exact" or "general" satisfiers configured on the
+    /// [`Verifier`](crate::Verifier). Indicates a failure to authenticate the macaroon.
     CaveatNotSatisfied(String),
+
+    /// Arises when verifying a [`Macaroon`](crate::Macaroon), with a set of discharges configured
+    /// on the verifier, and one or more are not used during the verification process. Indicates a
+    /// failure to authenticate the macaroon.
     DischargeNotUsed,
+
+    /// Arises when verifying a [`Macaroon`](crate::Macaroon), and the signature does not match
+    /// what is expected. Indicates a failure to authenticate the macaroon.
     InvalidSignature,
 }
 
