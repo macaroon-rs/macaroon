@@ -143,6 +143,18 @@ impl AsRef<[u8]> for ByteString {
     }
 }
 
+impl From<Vec<u8>> for ByteString {
+    fn from(v: Vec<u8>) -> ByteString {
+        ByteString(v)
+    }
+}
+
+impl From<&[u8]> for ByteString {
+    fn from(s: &[u8]) -> ByteString {
+        ByteString(s.to_vec())
+    }
+}
+
 impl From<&str> for ByteString {
     fn from(s: &str) -> ByteString {
         ByteString(s.as_bytes().to_vec())
