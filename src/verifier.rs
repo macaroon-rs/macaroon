@@ -95,7 +95,7 @@ mod tests {
     extern crate time;
 
     use super::Verifier;
-    use crate::{ByteString, Macaroon, MacaroonKey};
+    use crate::{ByteString, Macaroon, MacaroonError, MacaroonKey};
 
     #[test]
     fn test_simple_macaroon() {
@@ -304,5 +304,28 @@ mod tests {
         verifier
             .verify(&macaroon, &root_key, vec![discharge])
             .unwrap_err();
+    }
+
+    #[test]
+    fn test_macaroon_third_party_unsatisfied() {
+        let root_key = MacaroonKey::generate(b"this is the key");
+        let another_key = MacaroonKey::generate(b"this is another key");
+        let mut macaroon = Macaroon::create(
+            Some("http://example.org/".into()),
+            &root_key,
+            "keyid".into(),
+        )
+        .unwrap();
+
+        // with no caveats, should verify fine
+        let verifier = Verifier::default();
+        verifier.verify(&macaroon, &root_key, vec![]).unwrap();
+
+        // add a third party caveat but no satisfier, should fail
+        macaroon.add_third_party_caveat("http://auth.mybank/", &another_key, "other keyid".into());
+        assert!(matches!(
+            verifier.verify(&macaroon, &root_key, vec![]),
+            Err(MacaroonError::CaveatNotSatisfied(_))
+        ));
     }
 }
