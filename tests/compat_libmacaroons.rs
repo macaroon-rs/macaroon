@@ -135,9 +135,7 @@ fn verifying_macaroons() {
 
     // "Incompetent hackers trying to change the signature"
     let b64_standard = "MDAxY2xvY2F0aW9uIGh0dHA6Ly9teWJhbmsvCjAwMjZpZGVudGlmaWVyIHdlIHVzZWQgb3VyIHNlY3JldCBrZXkKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDIwY2lkIHRpbWUgPCAyMDIwLTAxLTAxVDAwOjAwCjAwMjJjaWQgZW1haWwgPSBhbGljZUBleGFtcGxlLm9yZwowMDJmc2lnbmF0dXJlID8f19FL+bkC9p/aoMmIecC7GxdOcLVyUnrv6lJMM7NSCg==";
-    let b64_url_safe =
-        base64::encode_config(base64::decode(b64_standard).unwrap(), base64::URL_SAFE);
-    let bad_mac = Macaroon::deserialize(&b64_url_safe.as_bytes().to_vec()).unwrap();
+    let bad_mac = Macaroon::deserialize(b64_standard).unwrap();
     assert_eq!(mac.location(), bad_mac.location());
     assert_eq!(mac.identifier(), bad_mac.identifier());
     assert_eq!(mac.caveats(), bad_mac.caveats());
