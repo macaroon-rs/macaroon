@@ -384,10 +384,30 @@ impl Macaroon {
         }
     }
 
-    /// Deserialize an encoded macaroon token, inferring the [Format]
+    /// Deserialize an encoded macaroon token, inferring the [Format].
     ///
     /// For V1 and V2 tokens, this assumes base64 encoding, in either "standard" or URL-safe
     /// encoding, with or without padding.
+    ///
+    /// For V2JSON tokens, the token must begin with the `{` character with no preceeding whitespace.
+    ///
+    /// ## Usage
+    ///
+    /// ```rust
+    /// use macaroon::Macaroon;
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    ///
+    /// // '&str' gets automatically de-referenced to bytes ('&[u8]').
+    /// // 'b"byte-string"' or slice of 'u8' would also work.
+    /// let mac = Macaroon::deserialize("MDAxY2xvY2F0aW9uIGh0dHA6Ly9teWJhbmsvCjAwMjZpZGVudGlmaWVyIHdlIHVzZWQgb3VyIHNlY3JldCBrZXkKMDAxNmNpZCB0ZXN0ID0gY2F2ZWF0CjAwMmZzaWduYXR1cmUgGXusegRK8zMyhluSZuJtSTvdZopmDkTYjOGpmMI9vWcK")?;
+    ///
+    /// let mac_v2json = Macaroon::deserialize(r#"{"v":2,"l":"http://example.org/","i":"keyid", "c":[{"i":"account = 3735928559"},{"i":"user = alice"}],"s64": "S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw"}"#)?;
+    ///
+    /// // expect this to fail; leading whitespace is not allowed
+    /// Macaroon::deserialize(r#"   {"v":2,"l":"http://example.org/","i":"keyid", "c":[{"i":"account = 3735928559"},{"i":"user = alice"}],"s64": "S-lnzR6gxrJrr2pKlO6bBbFYhtoLqF6MQqk8jQ4SXvw"}"#).unwrap_err();
+    /// # Ok(()) }
+    /// ```
     pub fn deserialize<T: AsRef<[u8]>>(token: T) -> Result<Macaroon> {
         if token.as_ref().is_empty() {
             return Err(MacaroonError::DeserializationError(
