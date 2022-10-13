@@ -1,5 +1,9 @@
 # macaroon Change Log
 
+## Version 0.3.1 - UNRELEASED (macaroon)
+
+Note: would increment to v0.4.0 if there are major changes.
+
 ## Version 0.3.0 - Oct 13, 2022 (macaroon)
 
 This is a backwards-incompatible release with respect to serialized macaroon signatures, because the HMAC has changed. This version should have signatures interoperable with `libmacaroon-rs v0.1.x`, and with most popular Macaroon implementations in other languages.
