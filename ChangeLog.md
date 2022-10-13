@@ -1,6 +1,6 @@
 # macaroon Change Log
 
-## Version 0.3.0 - UNRELEASED (macaroon)
+## Version 0.3.0 - Oct 13, 2022 (macaroon)
 
 This is a backwards-incompatible release with respect to serialized macaroon signatures, because the HMAC has changed. This version should have signatures interoperable with `libmacaroon-rs v0.1.x`, and with most popular Macaroon implementations in other languages.
 
@@ -8,6 +8,9 @@ This is a backwards-incompatible release with respect to serialized macaroon sig
 - Dependency updates
 - Update Rust edition to 2021, and minimum required Rust version to v1.56
 - Public API "flattened" (internal modules no longer exposed), and some internal cryptographic functions removed from API
+- Fix several trivial panics deserializing tokens
+- Flexible decoding of base64-encoded macaroons (either URL-safe base64 or "standard" base64)
+- Refactor MacaroonError, MacaroonKey, and Macaroon::deserialize()
 
 ## Version 0.2.0 - Sep 24, 2021 (macaroon)
 
