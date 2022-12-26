@@ -99,12 +99,17 @@
 //! - verification of third-party caveats using discharge macaroons (including ones that themselves have embedded third-party caveats)
 //! - serialization and deserialization of caveats via version 1, 2 or 2J serialization formats (fully compatible with libmacaroons)
 
-#[macro_use]
-extern crate log;
-extern crate base64;
-extern crate serde;
-extern crate serde_json;
-extern crate sodiumoxide;
+use std::fmt;
+
+use log::debug;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Visitor;
+
+pub use crate::caveat::Caveat;
+pub use crate::crypto::key::MacaroonKey;
+pub use crate::error::MacaroonError;
+pub use crate::serialization::Format;
+pub use crate::verifier::{Verifier, VerifyFunc};
 
 mod caveat;
 mod crypto;
@@ -112,24 +117,16 @@ mod error;
 mod serialization;
 mod verifier;
 
-pub use caveat::Caveat;
-pub use crypto::MacaroonKey;
-pub use error::MacaroonError;
-pub use serialization::Format;
-pub use verifier::{Verifier, VerifyFunc};
-
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
+const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::PAD);
+const STANDARD_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::STANDARD,
+        base64::engine::fast_portable::PAD);
 
 pub type Result<T> = std::result::Result<T, MacaroonError>;
-
-/// Initializes the cryptographic libraries. Although you can use `macaroon` without
-/// calling this, the underlying random-number generator is not guaranteed to be thread-safe
-/// if you don't.
-pub fn initialize() -> Result<()> {
-    sodiumoxide::init().map_err(|_| MacaroonError::InitializationError)
-}
 
 // An implementation that represents any binary data. By spec, most fields in a
 // macaroon support binary encoded as base64, so ByteString has methods to
@@ -237,9 +234,9 @@ fn base64_decode_flexible(b: &[u8]) -> Result<Vec<u8>> {
         ));
     }
     if b.contains(&b'_') || b.contains(&b'-') {
-        Ok(base64::decode_config(b, base64::URL_SAFE)?)
+        Ok(base64::decode_engine(b, &URL_SAFE_ENGINE)?)
     } else {
-        Ok(base64::decode_config(b, base64::STANDARD)?)
+        Ok(base64::decode_engine(b, &STANDARD_ENGINE)?)
     }
 }
 
@@ -280,7 +277,7 @@ impl Macaroon {
         let macaroon: Macaroon = Macaroon {
             location,
             identifier: identifier.clone(),
-            signature: crypto::hmac(key, &identifier),
+            signature: crypto::key::hmac(key, &identifier),
             caveats: Vec::new(),
         };
         debug!("Macaroon::create: {:?}", macaroon);
@@ -361,7 +358,7 @@ impl Macaroon {
     /// A third-party caveat is a caveat which must be verified by a third party
     /// using macaroons provided by them (referred to as "discharge macaroons").
     pub fn add_third_party_caveat(&mut self, location: &str, key: &MacaroonKey, id: ByteString) {
-        let vid: Vec<u8> = crypto::encrypt_key(&self.signature, key);
+        let vid: Vec<u8> = crypto::key::encrypt_key(&self.signature, key);
         let caveat: caveat::Caveat = caveat::new_third_party(id, ByteString(vid), location);
         self.signature = caveat.sign(&self.signature);
         self.caveats.push(caveat);
@@ -377,7 +374,7 @@ impl Macaroon {
     /// macaroon so that they can't be used in a different context.
     pub fn bind(&self, discharge: &mut Macaroon) {
         let zero_key = MacaroonKey::from([0; 32]);
-        discharge.signature = crypto::hmac2(&zero_key, &self.signature, &discharge.signature);
+        discharge.signature = crypto::key::hmac2(&zero_key, &self.signature, &discharge.signature);
         debug!(
             "Macaroon::bind: original: {:?}, discharge: {:?}",
             self, discharge

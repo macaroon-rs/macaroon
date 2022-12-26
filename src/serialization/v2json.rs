@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::str;
 
+const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::NO_PAD);
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
     i: Option<String>,
@@ -39,9 +44,9 @@ impl Serialization {
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(base64::encode_config(
+            s64: Some(base64::encode_engine(
                 &macaroon.signature(),
-                base64::URL_SAFE,
+                &URL_SAFE_ENGINE,
             )),
         };
         for c in macaroon.caveats() {
@@ -111,9 +116,9 @@ impl Macaroon {
             Some(loc) => builder.set_location(&loc),
             None => {
                 if let Some(loc) = ser.l64 {
-                    builder.set_location(&String::from_utf8(base64::decode_config(
+                    builder.set_location(&String::from_utf8(base64::decode_engine(
                         &loc,
-                        base64::URL_SAFE,
+                        &URL_SAFE_ENGINE,
                     )?)?)
                 }
             }
@@ -122,7 +127,7 @@ impl Macaroon {
         let raw_sig = match ser.s {
             Some(sig) => sig,
             None => match ser.s64 {
-                Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
+                Some(sig) => base64::decode_engine(&sig, &URL_SAFE_ENGINE)?,
                 None => {
                     return Err(MacaroonError::DeserializationError(
                         "No signature found".into(),
@@ -156,9 +161,9 @@ impl Macaroon {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     if let Some(loc64) = c.l64 {
-                        caveat_builder.add_location(String::from_utf8(base64::decode_config(
+                        caveat_builder.add_location(String::from_utf8(base64::decode_engine(
                             &loc64,
-                            base64::URL_SAFE,
+                            &URL_SAFE_ENGINE,
                         )?)?)
                     }
                 }
