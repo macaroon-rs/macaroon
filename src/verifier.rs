@@ -1,7 +1,8 @@
-use crate::crypto;
-use crate::{ByteString, Caveat, Macaroon, MacaroonError, MacaroonKey, Result};
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+
+use crate::{ByteString, Caveat, Macaroon, MacaroonError, MacaroonKey, Result};
+use crate::crypto;
 
 pub type VerifyFunc = fn(&ByteString) -> bool;
 
@@ -92,8 +93,9 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
-    use super::Verifier;
     use crate::{ByteString, Macaroon, MacaroonError, MacaroonKey};
+
+    use super::Verifier;
 
     #[test]
     fn test_simple_macaroon() {

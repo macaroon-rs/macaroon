@@ -1,7 +1,7 @@
+use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
 use crate::caveat::{Caveat, CaveatBuilder};
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
-use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
 
 // Version 2 fields
 const EOS: u8 = 0;
@@ -241,10 +241,10 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{ByteString, Macaroon, MacaroonKey};
     use crate::caveat;
     use crate::caveat::Caveat;
     use crate::serialization::macaroon_builder::MacaroonBuilder;
-    use crate::{ByteString, Macaroon, MacaroonKey};
     use crate::serialization::v2::URL_SAFE_ENGINE;
 
     #[test]

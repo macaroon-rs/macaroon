@@ -2,7 +2,7 @@
 name = "macaroon"
 version = "0.4.0-dev"
 edition = "2021"
-rust-version = "1.66"
+rust-version = "1.62"
 authors = ["Jack Lund <jackl@geekheads.net>", "macaroon-rs Contributors"]
 description = "Fully functional implementation of macaroons in Rust"
 documentation = "https://docs.rs/macaroon"

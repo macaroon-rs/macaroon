@@ -1,7 +1,9 @@
-use std::ops::{Deref, DerefMut};
 use std::borrow::Borrow;
-use hmac::Mac;
+use std::ops::{Deref, DerefMut};
+
 use chacha20poly1305::aead::rand_core::RngCore;
+use hmac::Mac;
+
 use crate::crypto::{Decryptor, DefaultEncryptor, Encryptor, MacaroonHmac};
 
 pub const NONCE_BYTES: usize = 12usize;

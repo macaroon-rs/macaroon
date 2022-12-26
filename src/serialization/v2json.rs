@@ -1,16 +1,13 @@
+use std::str;
+
+use serde::{Deserialize, Serialize};
+use serde_json;
+
+use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
 use crate::caveat;
 use crate::caveat::CaveatBuilder;
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
-use crate::{ByteString, Macaroon, Result};
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::str;
-
-const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-    base64::engine::fast_portable::FastPortable::from(
-        &base64::alphabet::URL_SAFE,
-        base64::engine::fast_portable::NO_PAD);
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
@@ -197,8 +194,9 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Format;
     use crate::{ByteString, Caveat, Macaroon, MacaroonKey};
+
+    use super::super::Format;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                    \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \
