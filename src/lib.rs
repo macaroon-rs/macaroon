@@ -117,14 +117,22 @@ mod error;
 mod serialization;
 mod verifier;
 
-const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+pub const PAD_URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
     base64::engine::fast_portable::FastPortable::from(
         &base64::alphabet::URL_SAFE,
         base64::engine::fast_portable::PAD);
-const STANDARD_ENGINE: base64::engine::fast_portable::FastPortable =
+pub const PAD_STANDARD_ENGINE: base64::engine::fast_portable::FastPortable =
     base64::engine::fast_portable::FastPortable::from(
         &base64::alphabet::STANDARD,
         base64::engine::fast_portable::PAD);
+pub const NO_PAD_URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::NO_PAD);
+pub const NO_PAD_STANDARD_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::STANDARD,
+        base64::engine::fast_portable::NO_PAD);
 
 pub type Result<T> = std::result::Result<T, MacaroonError>;
 
@@ -234,9 +242,17 @@ fn base64_decode_flexible(b: &[u8]) -> Result<Vec<u8>> {
         ));
     }
     if b.contains(&b'_') || b.contains(&b'-') {
-        Ok(base64::decode_engine(b, &URL_SAFE_ENGINE)?)
+        if b.contains(&b'=') {
+            Ok(base64::decode_engine(b, &PAD_URL_SAFE_ENGINE)?)
+        } else {
+            Ok(base64::decode_engine(b, &NO_PAD_URL_SAFE_ENGINE)?)
+        }
     } else {
-        Ok(base64::decode_engine(b, &STANDARD_ENGINE)?)
+        if b.contains(&b'=') {
+            Ok(base64::decode_engine(b, &PAD_STANDARD_ENGINE)?)
+        } else {
+            Ok(base64::decode_engine(b, &NO_PAD_STANDARD_ENGINE)?)
+        }
     }
 }
 

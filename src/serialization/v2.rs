@@ -1,4 +1,4 @@
-use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
+use crate::{ByteString, Macaroon, Result, PAD_URL_SAFE_ENGINE};
 use crate::caveat::{Caveat, CaveatBuilder};
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
@@ -59,7 +59,7 @@ pub fn serialize_binary(macaroon: &Macaroon) -> Result<Vec<u8>> {
 
 pub fn serialize(macaroon: &Macaroon) -> Result<String> {
     let buf = serialize_binary(macaroon)?;
-    Ok(base64::encode_engine(&buf, &URL_SAFE_ENGINE))
+    Ok(base64::encode_engine(&buf, &PAD_URL_SAFE_ENGINE))
 }
 
 struct Deserializer<'r> {
@@ -245,7 +245,7 @@ mod tests {
     use crate::caveat;
     use crate::caveat::Caveat;
     use crate::serialization::macaroon_builder::MacaroonBuilder;
-    use crate::serialization::v2::URL_SAFE_ENGINE;
+    use crate::serialization::v2::PAD_URL_SAFE_ENGINE;
 
     #[test]
     fn test_deserialize() {
@@ -254,7 +254,7 @@ mod tests {
             75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155, 5, 177, 88,
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
         ];
-        let serialized: Vec<u8> = base64::decode_engine(SERIALIZED, &URL_SAFE_ENGINE).unwrap();
+        let serialized: Vec<u8> = base64::decode_engine(SERIALIZED, &PAD_URL_SAFE_ENGINE).unwrap();
         let macaroon = super::deserialize(&serialized).unwrap();
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
         assert_eq!(ByteString::from("keyid"), macaroon.identifier());

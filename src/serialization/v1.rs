@@ -1,7 +1,7 @@
 use crate::caveat::{Caveat, CaveatBuilder};
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
-use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
+use crate::{ByteString, Macaroon, Result, PAD_URL_SAFE_ENGINE};
 use std::str;
 use log::error;
 
@@ -65,7 +65,7 @@ pub fn serialize_binary(macaroon: &Macaroon) -> Result<Vec<u8>> {
 
 pub fn serialize(macaroon: &Macaroon) -> Result<String> {
     let buf = serialize_binary(macaroon)?;
-    Ok(base64::encode_engine(&buf, &URL_SAFE_ENGINE))
+    Ok(base64::encode_engine(&buf, &PAD_URL_SAFE_ENGINE))
 }
 
 struct Packet {
@@ -175,17 +175,17 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ByteString, Caveat, Macaroon, MacaroonKey, URL_SAFE_ENGINE};
+    use crate::{base64_decode_flexible, ByteString, Caveat, Macaroon, MacaroonKey, PAD_URL_SAFE_ENGINE};
 
     #[test]
     fn test_deserialize() {
-        let mut serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo==";
+        let mut serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAyZnNpZ25hdHVyZSB83ueSURxbxvUoSFgF3-myTnheKOKpkwH51xHGCeOO9wo";
         let mut signature: MacaroonKey = [
             124, 222, 231, 146, 81, 28, 91, 198, 245, 40, 72, 88, 5, 223, 233, 178, 78, 120, 94,
             40, 226, 169, 147, 1, 249, 215, 17, 198, 9, 227, 142, 247,
         ]
         .into();
-        let data = base64::decode_engine(serialized, &URL_SAFE_ENGINE).unwrap();
+        let data = base64_decode_flexible(serialized.as_bytes()).unwrap();
         let macaroon = super::deserialize(&data).unwrap();
         let macaroon_lib = Macaroon::deserialize(serialized).unwrap();
         assert_eq!(macaroon, macaroon_lib);
@@ -199,7 +199,7 @@ mod tests {
             61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135,
         ]
         .into();
-        let data = base64::decode_engine(serialized, &URL_SAFE_ENGINE).unwrap();
+        let data = base64_decode_flexible(serialized.as_bytes()).unwrap();
         let macaroon = super::deserialize(&data).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
@@ -274,7 +274,7 @@ mod tests {
         assert!(Macaroon::deserialize(&vec![70, 70, 102, 70]).is_err());
         let tok = base64::encode_engine(
             &[97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 10],
-            &URL_SAFE_ENGINE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
         let tok = base64::encode_engine(
@@ -284,14 +284,14 @@ mod tests {
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 44, 125, 59, 64,
             ],
-            &URL_SAFE_ENGINE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
         let tok = base64::encode_engine(
             &[
                 48, 48, 49, 48, 49, 48, 52, 48, 48, 48, 48, 48, 48, 48, 48, 32, 126, 10,
             ],
-            &URL_SAFE_ENGINE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
     }

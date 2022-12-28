@@ -3,7 +3,7 @@ use std::str;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{ByteString, Macaroon, Result, URL_SAFE_ENGINE};
+use crate::{ByteString, Macaroon, Result, PAD_URL_SAFE_ENGINE, base64_decode_flexible};
 use crate::caveat;
 use crate::caveat::CaveatBuilder;
 use crate::error::MacaroonError;
@@ -43,7 +43,7 @@ impl Serialization {
             s: None,
             s64: Some(base64::encode_engine(
                 &macaroon.signature(),
-                &URL_SAFE_ENGINE,
+                &PAD_URL_SAFE_ENGINE,
             )),
         };
         for c in macaroon.caveats() {
@@ -113,10 +113,7 @@ impl Macaroon {
             Some(loc) => builder.set_location(&loc),
             None => {
                 if let Some(loc) = ser.l64 {
-                    builder.set_location(&String::from_utf8(base64::decode_engine(
-                        &loc,
-                        &URL_SAFE_ENGINE,
-                    )?)?)
+                    builder.set_location(&String::from_utf8(base64_decode_flexible(&loc.as_bytes())?)?)
                 }
             }
         };
@@ -124,7 +121,7 @@ impl Macaroon {
         let raw_sig = match ser.s {
             Some(sig) => sig,
             None => match ser.s64 {
-                Some(sig) => base64::decode_engine(&sig, &URL_SAFE_ENGINE)?,
+                Some(sig) => base64_decode_flexible(&sig.as_bytes())?,
                 None => {
                     return Err(MacaroonError::DeserializationError(
                         "No signature found".into(),
@@ -158,10 +155,7 @@ impl Macaroon {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     if let Some(loc64) = c.l64 {
-                        caveat_builder.add_location(String::from_utf8(base64::decode_engine(
-                            &loc64,
-                            &URL_SAFE_ENGINE,
-                        )?)?)
+                        caveat_builder.add_location(String::from_utf8(base64_decode_flexible(&loc64.as_bytes())?)?)
                     }
                 }
             };

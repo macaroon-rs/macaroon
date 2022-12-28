@@ -1,6 +1,6 @@
 use base64;
 /// https://github.com/ecordell/pymacaroons/blob/master/tests/functional_tests/functional_tests.py
-use macaroon::{Format, Macaroon, MacaroonError, MacaroonKey};
+use macaroon::{Format, Macaroon, MacaroonError, MacaroonKey, NO_PAD_URL_SAFE_ENGINE};
 
 fn bytes_to_hex(bytes: &[u8]) -> String {
     bytes
@@ -54,7 +54,7 @@ fn test_serializing() {
     mac.add_first_party_caveat("test = caveat".into());
     let b64_standard = "MDAxY2xvY2F0aW9uIGh0dHA6Ly9teWJhbmsvCjAwMjZpZGVudGlmaWVyIHdlIHVzZWQgb3VyIHNlY3JldCBrZXkKMDAxNmNpZCB0ZXN0ID0gY2F2ZWF0CjAwMmZzaWduYXR1cmUgGXusegRK8zMyhluSZuJtSTvdZopmDkTYjOGpmMI9vWcK";
     let b64_url_safe =
-        base64::encode_config(base64::decode(b64_standard).unwrap(), base64::URL_SAFE);
+        base64::encode_engine(base64::decode(b64_standard).unwrap(), &NO_PAD_URL_SAFE_ENGINE);
     assert_eq!(mac.serialize(Format::V1).unwrap(), b64_url_safe);
 
     let after_v1 = Macaroon::deserialize(mac.serialize(Format::V1).unwrap()).unwrap();
