@@ -2,7 +2,7 @@
 // https://github.com/rescrv/libmacaroons
 
 use base64;
-use macaroon::{ByteString, Caveat, Format, Macaroon, MacaroonKey, Verifier};
+use macaroon::{ByteString, Caveat, Format, Macaroon, MacaroonKey, NO_PAD_URL_SAFE_ENGINE, Verifier};
 
 fn bytes_to_hex(bytes: &[u8]) -> String {
     bytes
@@ -32,7 +32,7 @@ fn creating_macaroons() {
 
     let b64_standard = "MDAxY2xvY2F0aW9uIGh0dHA6Ly9teWJhbmsvCjAwMjZpZGVudGlmaWVyIHdlIHVzZWQgb3VyIHNlY3JldCBrZXkKMDAyZnNpZ25hdHVyZSDj2eApCFJsTAA5rhURQRXZf91ovyujebNCqvD2F9BVLwo";
     let b64_url_safe =
-        base64::encode_config(base64::decode(b64_standard).unwrap(), base64::URL_SAFE);
+        base64::encode_engine(base64::decode(b64_standard).unwrap(), &NO_PAD_URL_SAFE_ENGINE);
     assert_eq!(mac.serialize(Format::V1).unwrap(), b64_url_safe);
 }
 

@@ -1,7 +1,8 @@
-use crate::crypto;
-use crate::{ByteString, Caveat, Macaroon, MacaroonError, MacaroonKey, Result};
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+
+use crate::{ByteString, Caveat, Macaroon, MacaroonError, MacaroonKey, Result};
+use crate::crypto;
 
 pub type VerifyFunc = fn(&ByteString) -> bool;
 
@@ -32,11 +33,11 @@ impl Verifier {
         key: &MacaroonKey,
         discharge_set: &mut HashMap<ByteString, Macaroon>,
     ) -> Result<()> {
-        let mut sig = crypto::hmac(key, &m.identifier());
+        let mut sig = crypto::key::hmac(key, &m.identifier());
         for c in m.caveats() {
             sig = match &c {
                 Caveat::ThirdParty(tp) => {
-                    let caveat_key = crypto::decrypt_key(&sig, &tp.verifier_id().0)?;
+                    let caveat_key = crypto::key::decrypt_key(&sig, &tp.verifier_id().0)?;
                     let dm = discharge_set.remove(&tp.id()).ok_or_else(|| MacaroonError::CaveatNotSatisfied("no discharge macaroon found (or discharge has already been used) for third-party caveat".to_string()))?;
                     self.verify_with_sig(root_sig, &dm, &caveat_key, discharge_set)?;
                     c.sign(&sig)
@@ -65,7 +66,7 @@ impl Verifier {
         // Check the bound signature equals the signature of the discharge
         // macaroon
         let zero_key: MacaroonKey = [0; 32].into();
-        let bound_sig = crypto::hmac2(&zero_key, &ByteString(root_sig.to_vec()), &sig.into());
+        let bound_sig = crypto::key::hmac2(&zero_key, &ByteString(root_sig.to_vec()), &sig.into());
         if bound_sig != m.signature {
             return Err(MacaroonError::InvalidSignature);
         }
@@ -92,10 +93,9 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
-    extern crate time;
+    use crate::{ByteString, Macaroon, MacaroonError, MacaroonKey};
 
     use super::Verifier;
-    use crate::{ByteString, Macaroon, MacaroonError, MacaroonKey};
 
     #[test]
     fn test_simple_macaroon() {

@@ -1,9 +1,10 @@
-use crate::crypto;
-use crate::error::MacaroonError;
-use crate::ByteString;
-use crate::Result;
-use crypto::MacaroonKey;
 use std::fmt::Debug;
+
+use crate::ByteString;
+use crate::crypto;
+use crate::crypto::key::MacaroonKey;
+use crate::error::MacaroonError;
+use crate::Result;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Caveat {
@@ -44,8 +45,8 @@ impl ThirdParty {
 impl Caveat {
     pub fn sign(&self, key: &MacaroonKey) -> MacaroonKey {
         match self {
-            Self::FirstParty(fp) => crypto::hmac(key, &fp.predicate),
-            Self::ThirdParty(tp) => crypto::hmac2(key, &tp.verifier_id, &tp.id),
+            Self::FirstParty(fp) => crypto::key::hmac(key, &fp.predicate),
+            Self::ThirdParty(tp) => crypto::key::hmac2(key, &tp.verifier_id, &tp.id),
         }
     }
 }

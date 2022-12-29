@@ -1,11 +1,13 @@
+use std::str;
+
+use serde::{Deserialize, Serialize};
+use serde_json;
+
+use crate::{ByteString, Macaroon, Result, PAD_URL_SAFE_ENGINE, base64_decode_flexible};
 use crate::caveat;
 use crate::caveat::CaveatBuilder;
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
-use crate::{ByteString, Macaroon, Result};
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::str;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Caveat {
@@ -39,9 +41,9 @@ impl Serialization {
             l64: None,
             c: Vec::new(),
             s: None,
-            s64: Some(base64::encode_config(
+            s64: Some(base64::encode_engine(
                 &macaroon.signature(),
-                base64::URL_SAFE,
+                &PAD_URL_SAFE_ENGINE,
             )),
         };
         for c in macaroon.caveats() {
@@ -111,10 +113,7 @@ impl Macaroon {
             Some(loc) => builder.set_location(&loc),
             None => {
                 if let Some(loc) = ser.l64 {
-                    builder.set_location(&String::from_utf8(base64::decode_config(
-                        &loc,
-                        base64::URL_SAFE,
-                    )?)?)
+                    builder.set_location(&String::from_utf8(base64_decode_flexible(&loc.as_bytes())?)?)
                 }
             }
         };
@@ -122,7 +121,7 @@ impl Macaroon {
         let raw_sig = match ser.s {
             Some(sig) => sig,
             None => match ser.s64 {
-                Some(sig) => base64::decode_config(&sig, base64::URL_SAFE)?,
+                Some(sig) => base64_decode_flexible(&sig.as_bytes())?,
                 None => {
                     return Err(MacaroonError::DeserializationError(
                         "No signature found".into(),
@@ -156,10 +155,7 @@ impl Macaroon {
                 Some(loc) => caveat_builder.add_location(loc),
                 None => {
                     if let Some(loc64) = c.l64 {
-                        caveat_builder.add_location(String::from_utf8(base64::decode_config(
-                            &loc64,
-                            base64::URL_SAFE,
-                        )?)?)
+                        caveat_builder.add_location(String::from_utf8(base64_decode_flexible(&loc64.as_bytes())?)?)
                     }
                 }
             };
@@ -192,8 +188,9 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Format;
     use crate::{ByteString, Caveat, Macaroon, MacaroonKey};
+
+    use super::super::Format;
 
     const SERIALIZED_JSON: &str = "{\"v\":2,\"l\":\"http://example.org/\",\"i\":\"keyid\",\
                                    \"c\":[{\"i\":\"account = 3735928559\"},{\"i\":\"user = \

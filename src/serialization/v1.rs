@@ -1,8 +1,9 @@
 use crate::caveat::{Caveat, CaveatBuilder};
 use crate::error::MacaroonError;
 use crate::serialization::macaroon_builder::MacaroonBuilder;
-use crate::{ByteString, Macaroon, Result};
+use crate::{ByteString, Macaroon, Result, PAD_URL_SAFE_ENGINE};
 use std::str;
+use log::error;
 
 // Version 1 fields
 const LOCATION: &str = "location";
@@ -64,7 +65,7 @@ pub fn serialize_binary(macaroon: &Macaroon) -> Result<Vec<u8>> {
 
 pub fn serialize(macaroon: &Macaroon) -> Result<String> {
     let buf = serialize_binary(macaroon)?;
-    Ok(base64::encode_config(&buf, base64::URL_SAFE))
+    Ok(base64::encode_engine(&buf, &PAD_URL_SAFE_ENGINE))
 }
 
 struct Packet {
@@ -174,7 +175,7 @@ pub fn deserialize(data: &[u8]) -> Result<Macaroon> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ByteString, Caveat, Macaroon, MacaroonKey};
+    use crate::{base64_decode_flexible, ByteString, Caveat, Macaroon, MacaroonKey, PAD_URL_SAFE_ENGINE};
 
     #[test]
     fn test_deserialize() {
@@ -184,7 +185,7 @@ mod tests {
             40, 226, 169, 147, 1, 249, 215, 17, 198, 9, 227, 142, 247,
         ]
         .into();
-        let data = base64::decode_config(serialized, base64::URL_SAFE).unwrap();
+        let data = base64_decode_flexible(serialized.as_bytes()).unwrap();
         let macaroon = super::deserialize(&data).unwrap();
         let macaroon_lib = Macaroon::deserialize(serialized).unwrap();
         assert_eq!(macaroon, macaroon_lib);
@@ -198,7 +199,7 @@ mod tests {
             61, 191, 115, 57, 186, 97, 118, 93, 164, 189, 37, 157, 135,
         ]
         .into();
-        let data = base64::decode_config(serialized, base64::URL_SAFE).unwrap();
+        let data = base64_decode_flexible(serialized.as_bytes()).unwrap();
         let macaroon = super::deserialize(&data).unwrap();
         assert!(macaroon.location().is_some());
         assert_eq!("http://example.org/", &macaroon.location().unwrap());
@@ -214,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_two_caveats() {
-        let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg";
+        let serialized = "MDAyMWxvY2F0aW9uIGh0dHA6Ly9leGFtcGxlLm9yZy8KMDAxNWlkZW50aWZpZXIga2V5aWQKMDAxZGNpZCBhY2NvdW50ID0gMzczNTkyODU1OQowMDE1Y2lkIHVzZXIgPSBhbGljZQowMDJmc2lnbmF0dXJlIEvpZ80eoMaya69qSpTumwWxWIbaC6hejEKpPI0OEl78Cg==";
         let signature: MacaroonKey = [
             75, 233, 103, 205, 30, 160, 198, 178, 107, 175, 106, 74, 148, 238, 155, 5, 177, 88,
             134, 218, 11, 168, 94, 140, 66, 169, 60, 141, 14, 18, 94, 252,
@@ -271,26 +272,26 @@ mod tests {
 
         // these failed fuzz testing for this deserializer (V1)
         assert!(Macaroon::deserialize(&vec![70, 70, 102, 70]).is_err());
-        let tok = base64::encode_config(
+        let tok = base64::encode_engine(
             &[97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 10],
-            base64::URL_SAFE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
-        let tok = base64::encode_config(
+        let tok = base64::encode_engine(
             &[
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
                 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 44, 125, 59, 64,
             ],
-            base64::URL_SAFE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
-        let tok = base64::encode_config(
+        let tok = base64::encode_engine(
             &[
                 48, 48, 49, 48, 49, 48, 52, 48, 48, 48, 48, 48, 48, 48, 48, 32, 126, 10,
             ],
-            base64::URL_SAFE,
+            &PAD_URL_SAFE_ENGINE,
         );
         assert!(Macaroon::deserialize(&tok.as_bytes()).is_err());
     }
